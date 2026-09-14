@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Overridden by CI from the git tag:
+//   MARKETING_VERSION       = ${GITHUB_REF_NAME#v}
+//   CURRENT_PROJECT_VERSION = $(git rev-list --count HEAD)
+//
+// Commit count, not github.run_number: run_number resets to 1 if the workflow
+// file is renamed, which would strand every existing user on a "newer" old build.
+
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1

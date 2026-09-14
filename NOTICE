@@ -1,0 +1,32 @@
+ScreenSculpt
+Copyright (c) 2026 The ScreenSculpt Authors
+
+This product includes software developed by the ScreenSculpt Authors,
+licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+Sparkle
+  https://github.com/sparkle-project/Sparkle
+  Copyright (c) 2006-2013 Andy Matuschak
+  Copyright (c) 2009-2013 Elgato Systems GmbH
+  Copyright (c) 2011-2014 Kornel Lesinski
+  Copyright (c) 2015-2017 Mayur Pawashe
+  Copyright (c) 2014 C.W. Betts
+  Copyright (c) 2014 Petroules Corporation
+  Copyright (c) 2014 Big Nerd Ranch
+  Licensed under the MIT License.
+
+  Sparkle is used for in-app updates. Because ScreenSculpt is not signed with
+  an Apple Developer ID, update integrity rests entirely on Sparkle's EdDSA
+  (ed25519) signature verification rather than on code-signature validation.
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+"ScreenSculpt", the ScreenSculpt name, wordmark, and application icon are not
+licensed under Apache-2.0. See ASSETS-LICENSE. Apache-2.0 section 6 grants no
+trademark rights.

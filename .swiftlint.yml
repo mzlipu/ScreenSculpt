@@ -1,0 +1,161 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 The ScreenSculpt Authors
+
+included:
+  - App
+  - Packages/ScreenSculptKit/Sources
+  - Packages/ScreenSculptKit/Tests
+  - Tools
+
+excluded:
+  - .build
+  - build
+  - Packages/ScreenSculptKit/.build
+  - site
+
+disabled_rules:
+  - todo                      # roadmap markers are deliberate while scaffolding
+  - trailing_comma            # multiline literals read better with one
+  # A Set rule, but it pattern-matches `.intersection(_:).isEmpty` on our own
+  # ImageRect/ScreenRect/CanvasRect, where that is precisely how you ask whether
+  # two rects overlap. Nothing in this project uses Set.intersection.
+  - is_disjoint
+
+opt_in_rules:
+  - array_init
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - empty_count
+  - empty_string
+  - first_where
+  - last_where
+  - literal_expression_end_indentation
+  - modifier_order
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - yoda_condition
+
+line_length:
+  warning: 100
+  error: 120
+  ignores_urls: true
+  ignores_comments: false
+
+identifier_name:
+  min_length: 1               # x, y, dx, dy, k are the clearest names here
+  excluded: [id, x, y, z, w, h, k, r, g, b, a, dx, dy, px, pt]
+
+type_name:
+  min_length: 2
+
+function_body_length:
+  warning: 60
+  error: 120
+
+file_length:
+  warning: 500
+  error: 900
+
+cyclomatic_complexity:
+  warning: 12
+  error: 20
+
+nesting:
+  type_level: 2
+
+custom_rules:
+
+  # ── Architectural enforcement ────────────────────────────────────────────
+  #
+  # NOTE: SwiftPM does NOT prevent a target from importing AppKit — this was
+  # verified by compiling `import AppKit` inside SSStitch, which succeeded. Any
+  # target on macOS can reach every system framework regardless of its declared
+  # dependencies. So the module graph alone does not stop compute code touching
+  # the window server; this rule is the actual enforcement.
+  #
+  # Why it matters: the moment a stitcher or a measurement routine can read
+  # NSScreen.main, multi-display correctness stops being testable headlessly and
+  # starts depending on the machine the test happens to run on.
+  no_appkit_in_compute_modules:
+    name: "AppKit in a compute module"
+    included: ".*/Sources/(SSGeometry|SSImaging|SSAnnotations|SSStitch|SSMeasure|SSRecognition|SSExport|SSPersistence)/.*\\.swift"
+    regex: '^\s*import\s+(AppKit|Cocoa|SwiftUI)\b'
+    match_kinds: [identifier, keyword]
+    message: "Compute modules must stay headless and testable without a window server. Screen state belongs in SSPlatform; take it as a parameter instead."
+    severity: error
+
+  # RasterImage is the single justified escape hatch: CGImage is immutable after
+  # creation, so wrapping one is genuinely safe to send across isolation
+  # domains. Every other @unchecked Sendable is a concurrency bug in waiting.
+  no_unchecked_sendable:
+    name: "Unaudited @unchecked Sendable"
+    included: ".*/(App|Sources|Tests)/.*\\.swift"
+    excluded: ".*/Sources/SSImaging/RasterImage\\.swift"
+    regex: '@unchecked\s+Sendable'
+    match_kinds: [attribute.builtin, attribute.id, typeidentifier, identifier, keyword]
+    message: "RasterImage is the only sanctioned @unchecked Sendable. Pass a RasterImage, or make the type properly Sendable."
+    severity: error
+
+  # ── Unit-safety enforcement ──────────────────────────────────────────────
+  #
+  # The tagged scalars stop units being mixed, but only while values stay
+  # wrapped. Reaching for `.value` unwraps to a bare Double and discards the
+  # unit, which is exactly how a logical point ends up used as a device pixel.
+  # Legitimate uses are confined to SSGeometry itself and to framework
+  # boundaries, which should use `.cgFloat` / `.cgRect` instead.
+  no_raw_value_outside_geometry:
+    name: "Unwrapping a tagged scalar"
+    included: ".*/Sources/(SSAnnotations|SSDocument|SSRender|SSMeasure|SSStitch)/.*\\.swift"
+    regex: '\b(imageOrigin|tolerance|threshold)\.[a-zA-Z]+\.value\b'
+    message: "Unwrapping to Double drops the unit. Keep the tagged type, or convert through PixelScale / CanvasTransform."
+    severity: warning
+
+  # ── Capture correctness ──────────────────────────────────────────────────
+  #
+  # Obsoleted at macOS 15.0 (SCREEN_CAPTURE_OBSOLETE in CGWindow.h /
+  # CGDirectDisplay.h). These will not compile against a 15+ target and must
+  # never reappear as a "fallback".
+  no_obsolete_capture_api:
+    name: "Obsoleted CoreGraphics capture API"
+    regex: '\b(CGWindowListCreateImage|CGWindowListCreateImageFromArray|CGDisplayCreateImage|CGDisplayCreateImageForRect|CGDisplayStream)\b'
+    match_kinds: [identifier, typeidentifier]
+    message: "Obsoleted at macOS 15. ScreenCaptureKit is the only capture path; CGWindowListCopyWindowInfo remains fine for metadata."
+    severity: error
+
+  # `.automatic` can hand back a downscaled frame on a Retina display, which
+  # silently destroys the pixel accuracy the whole product is premised on.
+  capture_resolution_best:
+    name: "Capture resolution not pinned"
+    regex: 'captureResolution\s*=\s*\.automatic'
+    match_kinds: [identifier]
+    message: "Use .best — .automatic may silently downscale on Retina."
+    severity: error
+
+  # ── Correctness traps found during design ────────────────────────────────
+  #
+  # The Cocoa/CG vertical flip must pivot on the union of all screen frames.
+  # Using the primary display's height is correct on a single-display machine
+  # and wrong the moment a second display sits above it.
+  no_main_screen_flip:
+    name: "Flipping against the primary display"
+    regex: 'NSScreen\.main[!?]?\.frame\.(maxY|height)'
+    match_kinds: [identifier, typeidentifier]
+    message: "Flip against DisplayTopology.globalCocoaBounds.maxY — the union of all frames, not the primary display."
+    severity: error
+
+  # Display IDs are reassigned across undock/redock, so anything persisted
+  # against one comes back pointing at the wrong monitor.
+  no_persisted_display_id:
+    name: "Persisting a display ID"
+    included: ".*/Sources/SSPersistence/.*\\.swift"
+    regex: '\bCGDirectDisplayID\b'
+    match_kinds: [identifier, typeidentifier]
+    message: "Persist CGDisplayCreateUUIDFromDisplayID instead — display IDs are not stable across reconnect."
+    severity: error
+
+reporter: xcode

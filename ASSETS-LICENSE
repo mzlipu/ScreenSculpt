@@ -1,0 +1,39 @@
+ScreenSculpt Brand Assets — All Rights Reserved
+===============================================
+
+The Apache-2.0 licence in LICENSE covers the *source code* of this project.
+It does NOT cover the following, which remain all rights reserved:
+
+  Assets/brand/**          application icon, wordmark, logo, marketing art
+  Assets/dmg/**            disk image background artwork and volume icon
+  The name "ScreenSculpt"
+
+Why this is separate
+--------------------
+
+You are free to fork this code, modify it and ship it. Please do.
+
+But ScreenSculpt is distributed as an unsigned application, which means users
+cannot verify who built the copy they are running by checking a certificate.
+The name and icon are, in practice, the only way someone can tell a genuine
+build from a modified one. A fork that ships pixel-identical branding removes
+that last signal — for an app that holds Screen Recording permission, that is a
+real hazard rather than a theoretical one.
+
+So: fork the code, and give your fork its own name and icon.
+
+What you may do without asking
+------------------------------
+
+  * Use the name and icon to refer to this project (articles, reviews,
+    comparisons, "works with ScreenSculpt", package listings).
+  * Redistribute the unmodified application with its original branding.
+  * Include screenshots of the application in documentation or reviews.
+
+What needs permission
+---------------------
+
+  * Shipping a modified build under the ScreenSculpt name or icon.
+  * Using the branding in a way that suggests endorsement or affiliation.
+
+Ask by opening an issue. The answer is usually yes.
