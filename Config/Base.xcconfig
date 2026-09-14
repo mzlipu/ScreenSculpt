@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: Apache-2.0
+
+PRODUCT_NAME = ScreenSculpt
+PRODUCT_BUNDLE_IDENTIFIER = app.screensculpt.ScreenSculpt
+
+// macOS 14 is the floor: CGWindowListCreateImage and CGDisplayCreateImage are
+// obsoleted at 15.0, so ScreenCaptureKit is the only capture path, and
+// SCScreenshotManager.captureImage(contentFilter:configuration:) arrives at 14.0.
+MACOSX_DEPLOYMENT_TARGET = 14.0
+
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+
+// ONLY_ACTIVE_ARCH must be NO for Release or you ship a single-arch binary and
+// only Intel users find out.
+ARCHS = $(ARCHS_STANDARD)
+
+// Not sandboxed: synthesized CGEvent scroll, AXUIElement observation and
+// arbitrary-folder saves are all impossible inside the App Sandbox. This also
+// permanently forecloses the Mac App Store.
+ENABLE_APP_SANDBOX = NO
+
+// No Hardened Runtime: it exists to satisfy notarization, and without
+// notarization it only adds library-validation restrictions with no upside.
+ENABLE_HARDENED_RUNTIME = NO
+
+// Signing is ad-hoc. See docs — no Apple Developer Program.
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_ENTITLEMENTS =
+
+CLANG_ENABLE_OBJC_ARC = YES
+CLANG_ENABLE_MODULES = YES
+ENABLE_STRICT_OBJC_MSGSEND = YES
+GCC_NO_COMMON_BLOCKS = YES
+COMBINE_HIDPI_IMAGES = YES
+
+GCC_WARN_UNDECLARED_SELECTOR = YES
+GCC_WARN_UNINITIALIZED_AUTOS = YES
+CLANG_WARN_DOCUMENTATION_COMMENTS = YES
+CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE

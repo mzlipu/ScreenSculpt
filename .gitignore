@@ -1,0 +1,48 @@
+# Xcode project is generated from project.yml by XcodeGen.
+# It is an opaque plist that produces unresolvable merge conflicts, so it is
+# never committed. Run `make bootstrap` to regenerate it.
+*.xcodeproj
+*.xcworkspace
+!*.xcodeproj/project.xcworkspace/xcshareddata
+
+# Build output
+.build/
+build/
+DerivedData/
+*.xcarchive
+*.dmg
+*.zip
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+._*
+
+# Secrets — never commit these. The EdDSA private key in particular can never
+# be regenerated: every installed copy carries the matching public key.
+*.p12
+*.p8
+*_ed_private.key
+.env
+.env.local
+
+# Website
+site/node_modules/
+site/dist/
+site/.astro/
+
+# Local scratch
+/tmp/
+*.log
+
+# Local research notes. Kept on disk, deliberately not published — this is a
+# competitor teardown and the repository is public.
+docs/shottr-analysis.md

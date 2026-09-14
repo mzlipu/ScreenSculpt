@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest something
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Some things are deliberately out of scope — a Mac App Store build
+        (the sandbox makes scrolling capture impossible), telemetry, a hosted
+        upload service, and non-macOS platforms. See CONTRIBUTING.md.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you are in, not the feature you imagine.
+    validations: { required: true }
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?

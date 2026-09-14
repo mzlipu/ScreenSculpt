@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 The ScreenSculpt Authors
+#
+# XcodeGen spec. `ScreenSculpt.xcodeproj` is generated from this file and is
+# gitignored — an .xcodeproj is an opaque plist that produces unresolvable merge
+# conflicts on concurrent PRs. Run `make bootstrap` (or `xcodegen generate`) to
+# regenerate it.
+
+name: ScreenSculpt
+
+options:
+  minimumXcodeGenVersion: "2.42"
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settingGroups:
+  version:
+    base:
+      # Kept in Version.xcconfig so CI can override from the git tag.
+      MARKETING_VERSION: "$(MARKETING_VERSION)"
+      CURRENT_PROJECT_VERSION: "$(CURRENT_PROJECT_VERSION)"
+
+packages:
+  ScreenSculptKit:
+    path: Packages/ScreenSculptKit
+  # Sparkle works without an Apple code signature: it accepts an EdDSA
+  # signature over the update archive instead. That key becomes the *only*
+  # thing protecting the update channel on this distribution route, so it must
+  # be backed up offline before the first release.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
+
+targets:
+
+  ScreenSculpt:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: App/Resources/Info.plist
+      properties:
+        CFBundleName: ScreenSculpt
+        CFBundleDisplayName: ScreenSculpt
+        CFBundleIdentifier: app.screensculpt.ScreenSculpt
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundlePackageType: APPL
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.utilities
+
+        # Dock icon is shown by default and hidden at runtime via
+        # NSApp.setActivationPolicy(.accessory) when the user asks.
+        LSUIElement: false
+
+        NSHighResolutionCapable: true
+        NSSupportsAutomaticTermination: false
+        NSPrincipalClass: NSApplication
+
+        # Sparkle. SUPublicEDKey is filled in once `generate_keys` has run.
+        SUFeedURL: https://dl.screensculpt.app/appcast.xml
+        SUPublicEDKey: ""
+        SUEnableInstallerLauncherService: false
+
+        # TCC purpose strings.
+        #
+        # There is deliberately no Screen Recording key here: macOS provides no
+        # purpose string for it. That grant is requested at runtime via
+        # CGRequestScreenCaptureAccess() and explained in our own UI.
+        #
+        # NSAccessibilityUsageDescription is likewise omitted — macOS does not
+        # display it; the Accessibility prompt text is fixed.
+        NSAppleEventsUsageDescription:
+          ScreenSculpt uses automation to identify the window you are capturing
+          and to run capture actions triggered by Shortcuts.
+        NSDesktopFolderUsageDescription:
+          ScreenSculpt saves screenshots to the folder you choose, which is your
+          Desktop by default.
+        NSDocumentsFolderUsageDescription:
+          ScreenSculpt saves screenshots to the folder you choose.
+        NSDownloadsFolderUsageDescription:
+          ScreenSculpt saves screenshots to the folder you choose.
+        NSRemovableVolumesUsageDescription:
+          ScreenSculpt saves screenshots to the folder you choose, which may be
+          on an external drive.
+
+        CFBundleDocumentTypes:
+          - CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.png
+              - public.jpeg
+              - com.compuserve.gif
+
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: app.screensculpt.ScreenSculpt
+            CFBundleURLSchemes:
+              - screensculpt
+
+    settings:
+      groups: [version]
+      base:
+        # No entitlements file. Screen Recording, Accessibility and file access
+        # are TCC runtime grants, not entitlements. network.client and
+        # files.user-selected are sandbox-only and inert here. The Apple Events
+        # entitlement only gates anything under the Hardened Runtime, which is
+        # off. So there is nothing to declare.
+        CODE_SIGN_ENTITLEMENTS: ""
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright (c) 2026 The ScreenSculpt Authors"
+
+    dependencies:
+      - package: ScreenSculptKit
+        product: ScreenSculptKit
+      - package: Sparkle
+        product: Sparkle
+
+    scheme:
+      testTargets:
+        - package: ScreenSculptKit/SSGeometryTests
+      gatherCoverageData: false
+      commandLineArguments:
+        "-AppleLanguages (en)": false
+
+schemes:
+  ScreenSculpt:
+    build:
+      targets:
+        ScreenSculpt: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

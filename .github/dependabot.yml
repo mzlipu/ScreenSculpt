@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ["*"] }   # one PR, not nine
+  - package-ecosystem: swift
+    directory: /Packages/ScreenSculptKit
+    schedule: { interval: weekly }

@@ -1,0 +1,80 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most reports for an app like this turn out to hinge on the display setup
+        or on a permission grant, so those fields are required. Please fill them
+        in even if they seem irrelevant.
+
+  - type: input
+    id: version
+    attributes:
+      label: ScreenSculpt version
+      description: From the menu bar item, or About ScreenSculpt.
+      placeholder: "0.1.0 (42)"
+    validations: { required: true }
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.6.2"
+    validations: { required: true }
+
+  - type: dropdown
+    id: silicon
+    attributes:
+      label: Mac
+      options: [Apple silicon, Intel]
+    validations: { required: true }
+
+  - type: textarea
+    id: displays
+    attributes:
+      label: Display setup
+      description: >
+        How many displays, their resolutions and scale factors, and how they are
+        arranged — particularly whether any display sits above or left of the
+        primary one. Mixed 2x/1x arrangements are where most geometry bugs live.
+      placeholder: |
+        Built-in 3024x1964 @2x (primary)
+        Dell 3440x1440 @1x, positioned above the built-in
+    validations: { required: true }
+
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions granted
+      options:
+        - label: Screen Recording
+        - label: Accessibility
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - curl one-liner
+        - Downloaded the DMG in a browser
+        - Homebrew
+        - Built from source
+    validations: { required: true }
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations: { required: true }
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations: { required: true }

@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+#include "Base.xcconfig"
+
+// YES here is how a single-arch Release ships silently.
+ONLY_ACTIVE_ARCH = NO
+
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+DEAD_CODE_STRIPPING = YES
+STRIP_INSTALLED_PRODUCT = YES
+SWIFT_TREAT_WARNINGS_AS_ERRORS = YES
+ENABLE_TESTABILITY = NO
