@@ -3,6 +3,7 @@
 
 import AppKit
 import SSExport
+import SSHotKeys
 import SSPersistence
 import SSPlatform
 
@@ -35,13 +36,21 @@ extension AppEnvironment {
             menu.addItem(item)
         }
 
-        add("Capture Area…", #selector(captureArea), "4", [.command, .shift, .control])
-        add("Capture Fullscreen", #selector(captureFullscreen), "3",
-            [.command, .shift, .control])
-        add(
-            "Capture Active Window", #selector(captureActiveWindow), "5",
-            [.command, .shift, .control]
-        )
+        // Read from the live bindings rather than repeating them as literals.
+        // Hardcoding meant the menu kept advertising a shortcut the user had
+        // already changed — and quietly went stale when the defaults moved.
+        func addCapture(_ title: String, _ action: Selector, _ id: HotKeyID) {
+            guard let equivalent = hotKeys.bindings[id]?.menuKeyEquivalent else {
+                add(title, action, "", [])
+                return
+            }
+            add(title, action, equivalent.key, equivalent.modifiers)
+        }
+
+        addCapture("Capture Area…", #selector(captureArea), .captureArea)
+        addCapture("Capture Fullscreen", #selector(captureFullscreen), .captureFullscreen)
+        addCapture("Capture Active Window", #selector(captureActiveWindow), .captureWindow)
+        addCapture("Recognise Text…", #selector(recogniseTextFromScreen), .recogniseText)
 
         menu.addItem(.separator())
 

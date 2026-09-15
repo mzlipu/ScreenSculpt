@@ -92,6 +92,20 @@ public struct HotKeyBinding: Sendable, Codable, Equatable, Hashable {
         return text + Self.keyName(for: keyCode)
     }
 
+    /// The binding expressed as an `NSMenuItem` key equivalent.
+    ///
+    /// Menu equivalents are characters, so a key with no character — Space,
+    /// Return, the function row — cannot be shown and returns an empty string.
+    /// Showing nothing is right: a menu that displays the wrong shortcut is
+    /// worse than one that displays none.
+    public var menuKeyEquivalent: (key: String, modifiers: NSEvent.ModifierFlags) {
+        let name = Self.keyName(for: keyCode)
+        guard name.count == 1, let character = name.first, character.isLetter
+            || character.isNumber || character.isPunctuation || character.isSymbol
+        else { return ("", []) }
+        return (name.lowercased(), cocoaModifiers)
+    }
+
     static func keyName(for keyCode: UInt16) -> String {
         if let special = specialKeyNames[keyCode] { return special }
         guard
@@ -129,22 +143,39 @@ public struct HotKeyBinding: Sendable, Codable, Equatable, Hashable {
 }
 
 extension HotKeyID {
-    /// Defaults chosen to avoid the system screenshot shortcuts.
+    /// Defaults chosen to sit beside the system screenshot shortcuts, not on
+    /// top of them.
     ///
-    /// macOS owns ⇧⌘3/4/5 and will win silently if we register them, so the
-    /// defaults add Control. A fresh install then never collides.
+    /// macOS owns ⇧⌘3, ⇧⌘4 and ⇧⌘5 and wins silently if we register them, so
+    /// the digits start at 1 and 2 — free on a stock system, and adjacent to
+    /// the built-ins people already know. Window and repeat keep a Control
+    /// prefix because the remaining low digits are all taken.
     public var defaultBinding: HotKeyBinding? {
         switch self {
-        case .captureArea:
-            HotKeyBinding(keyCode: 21, cocoa: [.control, .shift, .command])       // 4
         case .captureFullscreen:
-            HotKeyBinding(keyCode: 20, cocoa: [.control, .shift, .command])       // 3
+            HotKeyBinding(keyCode: 18, cocoa: [.shift, .command])                 // ⇧⌘1
+        case .captureArea:
+            HotKeyBinding(keyCode: 19, cocoa: [.shift, .command])                 // ⇧⌘2
+        case .recogniseText:
+            HotKeyBinding(keyCode: 31, cocoa: [.shift, .command])                 // ⇧⌘O
         case .captureWindow:
-            HotKeyBinding(keyCode: 23, cocoa: [.control, .shift, .command])       // 5
+            HotKeyBinding(keyCode: 23, cocoa: [.control, .shift, .command])       // ⌃⇧⌘5
         case .captureRepeat:
-            HotKeyBinding(keyCode: 22, cocoa: [.control, .shift, .command])       // 6
+            HotKeyBinding(keyCode: 22, cocoa: [.control, .shift, .command])       // ⌃⇧⌘6
         default:
             nil
+        }
+    }
+
+    /// What the defaults were before revision 2, so a migration can tell an
+    /// untouched binding from one the user deliberately chose.
+    static func legacyDefaultBinding(for id: HotKeyID) -> HotKeyBinding? {
+        switch id {
+        case .captureArea: HotKeyBinding(keyCode: 21, cocoa: [.control, .shift, .command])
+        case .captureFullscreen: HotKeyBinding(keyCode: 20, cocoa: [.control, .shift, .command])
+        case .captureWindow: HotKeyBinding(keyCode: 23, cocoa: [.control, .shift, .command])
+        case .captureRepeat: HotKeyBinding(keyCode: 22, cocoa: [.control, .shift, .command])
+        default: nil
         }
     }
 }

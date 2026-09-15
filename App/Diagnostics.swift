@@ -8,6 +8,8 @@ import ScreenCaptureKit
 import SSCapture
 import SSCaptureUI
 import SSGeometry
+import SSHotKeys
+import SSPersistence
 import SSPlatform
 
 /// `ScreenSculpt --diagnose` — prints what the app can actually see and exits.
@@ -56,6 +58,24 @@ enum Diagnostics {
             .appendingPathComponent("Library/Logs/ScreenSculpt-diagnostics.txt")
     }
 
+    /// Reports the configured shortcuts and flags any macOS already owns.
+    ///
+    /// A combination the system holds registers without error and then never
+    /// fires, so it is invisible from inside the app — this is where it shows.
+    private static func shortcutsSection() -> [String] {
+        var out = ["Shortcuts:"]
+        let configured = HotKeyCenter.configuredBindings(settings: SettingsStore())
+        let systemOwned = Set(HotKeyCenter.systemScreenshotShortcuts())
+
+        for id in HotKeyID.allCases {
+            guard let binding = configured[id] else { continue }
+            let warning = systemOwned.contains(binding) ? "   ⚠️  macOS owns this" : ""
+            out.append("  \(id.label): \(binding.displayString)\(warning)")
+        }
+        out.append("")
+        return out
+    }
+
     private static func identitySection() -> [String] {
         var out: [String] = []
 
@@ -98,6 +118,8 @@ enum Diagnostics {
             out.append("  ⚠️  More than one installed copy — keep only /Applications.")
         }
         out.append("")
+
+        out += shortcutsSection()
 
         out.append("Signature:")
         out.append("  \(codesignSummary())")

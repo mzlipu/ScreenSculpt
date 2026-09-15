@@ -38,6 +38,11 @@ public final class HotKeyCenter {
 
     private static let storageKey = SettingKey("hotkeyBindings", default: "")
 
+    /// Bumped when the shipped defaults change, so existing installs can be
+    /// migrated without discarding anything the user chose themselves.
+    private static let defaultsRevision = 2
+    private static let revisionKey = SettingKey("hotkeyDefaultsRevision", default: 0)
+
     /// The live instance, so the C callback can find its way home.
     ///
     /// Carbon hands back a plain C function pointer with a void* context; a
@@ -65,11 +70,8 @@ public final class HotKeyCenter {
     private func loadBindings() {
         let raw = settings[Self.storageKey]
         if raw.isEmpty {
-            bindings = Dictionary(
-                uniqueKeysWithValues: HotKeyID.allCases.compactMap { id in
-                    id.defaultBinding.map { (id, $0) }
-                }
-            )
+            bindings = Self.shippedDefaults()
+            settings[Self.revisionKey] = Self.defaultsRevision
             return
         }
         let decoded = (try? JSONDecoder().decode(
@@ -80,6 +82,40 @@ public final class HotKeyCenter {
                 HotKeyID(rawValue: key).map { ($0, value) }
             }
         )
+        migrateDefaultsIfNeeded()
+    }
+
+    private static func shippedDefaults() -> [HotKeyID: HotKeyBinding] {
+        Dictionary(
+            uniqueKeysWithValues: HotKeyID.allCases.compactMap { id in
+                id.defaultBinding.map { (id, $0) }
+            }
+        )
+    }
+
+    /// Move installs onto new shipped defaults **without** overwriting choices.
+    ///
+    /// A binding is only replaced when it still exactly matches the old shipped
+    /// default — meaning the user never touched it. Anything they set
+    /// deliberately survives, which is the difference between a migration and
+    /// losing someone's configuration.
+    private func migrateDefaultsIfNeeded() {
+        guard settings[Self.revisionKey] < Self.defaultsRevision else { return }
+
+        var changed = false
+        for id in HotKeyID.allCases {
+            guard let newDefault = id.defaultBinding else { continue }
+            let current = bindings[id]
+            let wasUntouched = current == nil
+                || current == HotKeyID.legacyDefaultBinding(for: id)
+            if wasUntouched, current != newDefault {
+                bindings[id] = newDefault
+                changed = true
+            }
+        }
+
+        settings[Self.revisionKey] = Self.defaultsRevision
+        if changed { saveBindings() }
     }
 
     private func saveBindings() {
@@ -179,13 +215,28 @@ public final class HotKeyCenter {
 
     public func resetToDefaults() {
         for id in HotKeyID.allCases { unregister(id) }
-        bindings = Dictionary(
-            uniqueKeysWithValues: HotKeyID.allCases.compactMap { id in
-                id.defaultBinding.map { (id, $0) }
-            }
-        )
+        bindings = Self.shippedDefaults()
+        settings[Self.revisionKey] = Self.defaultsRevision
         saveBindings()
         registerAll()
+    }
+
+    /// The stored bindings, without constructing a center or registering
+    /// anything.
+    ///
+    /// Diagnostics needs to report the configured shortcuts, and registering
+    /// hotkeys as a side effect of asking what they are would be a poor trade.
+    public static func configuredBindings(settings: SettingsStore) -> [HotKeyID: HotKeyBinding] {
+        let raw = settings[storageKey]
+        guard !raw.isEmpty else { return shippedDefaults() }
+        let decoded = (try? JSONDecoder().decode(
+            [String: HotKeyBinding].self, from: Data(raw.utf8)
+        )) ?? [:]
+        return Dictionary(
+            uniqueKeysWithValues: decoded.compactMap { key, value in
+                HotKeyID(rawValue: key).map { ($0, value) }
+            }
+        )
     }
 
     /// System shortcuts that already own a combination.
