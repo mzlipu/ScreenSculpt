@@ -50,6 +50,7 @@ extension AppEnvironment {
         addCapture("Capture Area…", #selector(captureArea), .captureArea)
         addCapture("Capture Fullscreen", #selector(captureFullscreen), .captureFullscreen)
         addCapture("Capture Active Window", #selector(captureActiveWindow), .captureWindow)
+        addCapture("Capture Scrolling Page…", #selector(captureScrolling), .captureScrolling)
         addCapture("Recognise Text…", #selector(recogniseTextFromScreen), .recogniseText)
 
         menu.addItem(.separator())

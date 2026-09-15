@@ -11,6 +11,7 @@ public enum HotKeyID: String, Sendable, CaseIterable, Identifiable, Codable {
     case captureArea
     case captureFullscreen
     case captureWindow
+    case captureScrolling
     case captureRepeat
     case captureDelayed
     case recogniseText
@@ -23,6 +24,7 @@ public enum HotKeyID: String, Sendable, CaseIterable, Identifiable, Codable {
         case .captureArea: "Capture area"
         case .captureFullscreen: "Capture fullscreen"
         case .captureWindow: "Capture active window"
+        case .captureScrolling: "Capture scrolling page"
         case .captureRepeat: "Repeat last area"
         case .captureDelayed: "Delayed capture"
         case .recogniseText: "Recognise text (OCR)"
@@ -160,6 +162,8 @@ extension HotKeyID {
             HotKeyBinding(keyCode: 31, cocoa: [.shift, .command])                 // ⇧⌘O
         case .captureWindow:
             HotKeyBinding(keyCode: 23, cocoa: [.control, .shift, .command])       // ⌃⇧⌘5
+        case .captureScrolling:
+            HotKeyBinding(keyCode: 19, cocoa: [.control, .shift, .command])       // ⌃⇧⌘2
         case .captureRepeat:
             HotKeyBinding(keyCode: 22, cocoa: [.control, .shift, .command])       // ⌃⇧⌘6
         default:

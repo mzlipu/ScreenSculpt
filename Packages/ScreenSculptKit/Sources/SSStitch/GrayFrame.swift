@@ -62,6 +62,26 @@ public struct GrayFrame: Sendable {
         self.init(image.cgImage)
     }
 
+    /// Whether two frames show the same thing, sampled rather than compared in
+    /// full — this runs between every poll of a settling page.
+    ///
+    /// The tolerance is not zero: a caret blinking or a shadow redrawing moves a
+    /// row by a step or two, and treating that as movement would keep a settled
+    /// page from ever being declared settled.
+    public func matches(_ other: GrayFrame, tolerance: Double = 1.0) -> Bool {
+        guard width == other.width, height == other.height else { return false }
+        let step = max(1, height / 48)
+        var total = 0.0
+        var counted = 0
+        var row = 0
+        while row < height {
+            total += rowDifference(row, against: other, row: row)
+            counted += 1
+            row += step
+        }
+        return counted > 0 && total / Double(counted) <= tolerance
+    }
+
     /// Mean absolute difference between one row of this frame and one of another,
     /// in luminance steps (0…255).
     func rowDifference(_ row: Int, against other: GrayFrame, row otherRow: Int) -> Double {

@@ -40,7 +40,7 @@ public final class HotKeyCenter {
 
     /// Bumped when the shipped defaults change, so existing installs can be
     /// migrated without discarding anything the user chose themselves.
-    private static let defaultsRevision = 2
+    private static let defaultsRevision = 3
     private static let revisionKey = SettingKey("hotkeyDefaultsRevision", default: 0)
 
     /// The live instance, so the C callback can find its way home.
@@ -232,11 +232,18 @@ public final class HotKeyCenter {
         let decoded = (try? JSONDecoder().decode(
             [String: HotKeyBinding].self, from: Data(raw.utf8)
         )) ?? [:]
-        return Dictionary(
+        var bindings = Dictionary(
             uniqueKeysWithValues: decoded.compactMap { key, value in
                 HotKeyID(rawValue: key).map { ($0, value) }
             }
         )
+        // Fill in commands the stored set predates. A binding that is absent
+        // gets its default the next time a center is built, so reporting the
+        // gap as "unbound" would describe a state the app is never in.
+        for id in HotKeyID.allCases where bindings[id] == nil {
+            bindings[id] = id.defaultBinding
+        }
+        return bindings
     }
 
     /// System shortcuts that already own a combination.

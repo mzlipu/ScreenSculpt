@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 The ScreenSculpt Authors
 
+import CoreGraphics
 import Foundation
 
 @testable import SSStitch
@@ -95,6 +96,26 @@ struct SyntheticDocument {
         }
     }
 
+    /// The same cut as `frame(at:height:)`, as an RGBA image the session can
+    /// paste. Grey is written to all three channels so luminance survives.
+    func cgImage(at offset: Int, height frameHeight: Int) -> CGImage {
+        let gray = frame(at: offset, height: frameHeight)
+        var rgba = [UInt8](repeating: 255, count: width * frameHeight * 4)
+        for index in 0..<(width * frameHeight) {
+            let value = gray.pixels[index]
+            rgba[index * 4] = value
+            rgba[index * 4 + 1] = value
+            rgba[index * 4 + 2] = value
+        }
+        let provider = CGDataProvider(data: Data(rgba) as CFData)!
+        return CGImage(
+            width: width, height: frameHeight, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        )!
+    }
+
     /// Cut a viewport-sized frame at a document offset.
     func frame(at offset: Int, height frameHeight: Int) -> GrayFrame {
         var buffer = [UInt8](repeating: 250, count: width * frameHeight)
@@ -141,3 +162,22 @@ let runsAtFullScale = false
 #else
 let runsAtFullScale = true
 #endif
+
+extension GrayFrame {
+    /// Back to an RGBA image, so a decorated frame can re-enter the session.
+    func asImage() -> CGImage {
+        var rgba = [UInt8](repeating: 255, count: width * height * 4)
+        for index in 0..<(width * height) {
+            rgba[index * 4] = pixels[index]
+            rgba[index * 4 + 1] = pixels[index]
+            rgba[index * 4 + 2] = pixels[index]
+        }
+        let provider = CGDataProvider(data: Data(rgba) as CFData)!
+        return CGImage(
+            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        )!
+    }
+}

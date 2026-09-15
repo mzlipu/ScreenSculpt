@@ -19,10 +19,10 @@ import SSSettingsUI
 @MainActor
 final class AppEnvironment {
 
-    private let captureService: any CaptureService = ScreenCaptureKitService()
+    let captureService: any CaptureService = ScreenCaptureKitService()
     let permissions = PermissionBroker()
     let settings = SettingsStore()
-    private lazy var areaSelection = AreaSelectionController(captureService: captureService)
+    lazy var areaSelection = AreaSelectionController(captureService: captureService)
     /// Not private: the status menu reads it so the shortcuts it shows are the
     /// ones actually registered.
     lazy var hotKeys = HotKeyCenter(settings: settings)
@@ -30,7 +30,7 @@ final class AppEnvironment {
     var settingsWindow: SettingsWindowController?
 
     var statusItem: NSStatusItem?
-    private var isCapturing = false
+    var isCapturing = false
     var confirmationTask: Task<Void, Never>?
     var lastReceiptURL: URL?
 
@@ -57,6 +57,7 @@ final class AppEnvironment {
             case .captureArea: captureArea()
             case .captureFullscreen: captureFullscreen()
             case .captureWindow: captureActiveWindow()
+            case .captureScrolling: captureScrolling()
             case .captureRepeat: captureArea()      // repeat-region lands with Phase 2
             case .captureDelayed: captureFullscreen()
             case .recogniseText: recogniseTextFromScreen()
@@ -263,7 +264,7 @@ final class AppEnvironment {
     // MARK: - Editor
 
     /// Show the capture in an editor window on the display it came from.
-    private func openEditor(for result: CaptureResult) {
+    func openEditor(for result: CaptureResult) {
         let screen = result.provenance.sourceDisplayID.flatMap { id in
             NSScreen.screens.first { CocoaBridge.displayID(of: $0) == id }
         }
