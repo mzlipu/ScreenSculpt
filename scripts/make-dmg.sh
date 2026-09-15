@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Build a distributable .dmg from a Release build.
 #
-# No Developer ID, no notarization — see docs. The app is ad-hoc signed, which
-# is a kernel requirement on Apple silicon (an arm64 binary with no signature at
-# all will not execute), not a Gatekeeper measure.
+# No Developer ID, no notarization — see docs. The app is signed with a
+# self-signed certificate, which does NOT satisfy Gatekeeper but does give a
+# stable designated requirement, so the user's Screen Recording grant survives
+# updates. Falls back to ad-hoc if no certificate is present.
 #
 # Usage: scripts/make-dmg.sh [version]
 
@@ -44,15 +45,32 @@ echo "    archs: $ARCHS"
 grep -q x86_64 <<< "$ARCHS" || { echo "FATAL: missing x86_64"; exit 1; }
 grep -q arm64  <<< "$ARCHS" || { echo "FATAL: missing arm64";  exit 1; }
 
-echo "==> Ad-hoc signing"
 # Strip extended attributes first: a stray one makes codesign fail with
 # "resource fork, Finder information, or similar detritus not allowed".
 xattr -cr "$APP"
 find "$APP" -name '.DS_Store' -delete
-# --deep is acceptable here only because there are no entitlements to
-# mis-propagate. With a real identity it would be wrong.
-codesign --force --sign - --deep "$APP"
-codesign --verify --verbose=2 "$APP" 2>&1 | sed 's/^/    /'
+
+# Prefer the self-signed certificate over ad-hoc.
+#
+# Ad-hoc gives a `cdhash` designated requirement, which changes on every build
+# and therefore invalidates the user's Screen Recording grant every time they
+# update — while System Settings still shows it as enabled. A certificate gives
+# an `identifier + certificate leaf` requirement, which is stable.
+CERT_NAME="${SCREENSCULPT_CERT_NAME:-ScreenSculpt Local Dev}"
+if security find-certificate -c "$CERT_NAME" >/dev/null 2>&1; then
+  echo "==> Signing with $CERT_NAME (stable designated requirement)"
+  codesign --force --sign "$CERT_NAME" --deep "$APP"
+else
+  echo "==> Ad-hoc signing (no certificate found)"
+  echo "    WARNING: the Screen Recording grant will reset on every rebuild."
+  echo "    Run scripts/make-signing-cert.sh once to fix that."
+  # --deep is acceptable only because there are no entitlements to
+  # mis-propagate. With a real Developer ID it would be wrong.
+  codesign --force --sign - --deep "$APP"
+fi
+
+echo "    designated requirement:"
+codesign -d -r- "$APP" 2>&1 | grep designated | sed 's/^/      /'
 
 echo "==> Staging"
 rm -rf "$STAGE" "$DMG"
@@ -96,9 +114,10 @@ ScreenSculpt
 4. On your first capture, macOS will ask for Screen Recording permission.
    This is unavoidable: macOS gates all screen pixels behind it.
 
-   NOTE: because the app is unsigned, this permission RESETS every time you
-   install a new version. ScreenSculpt will detect that and tell you how to
-   re-grant it.
+   IMPORTANT: after enabling it in System Settings you must QUIT AND REOPEN
+   ScreenSculpt. macOS only applies this permission when an app starts, so
+   approving it while the app is running changes nothing until you restart.
+   ScreenSculpt detects this and offers a Relaunch button.
 
 Shortcuts
 ---------

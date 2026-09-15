@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 PKG := Packages/ScreenSculptKit
 
-.PHONY: help bootstrap generate test test-fast build run dmg clean doctor
+.PHONY: help bootstrap generate test test-fast build run dmg cert install clean doctor
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -37,6 +37,19 @@ run: build ## Build and launch
 	  open "$$(xcodebuild -project ScreenSculpt.xcodeproj -scheme ScreenSculpt \
 	    -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $$2}' | \
 	    head -1)/ScreenSculpt.app"
+
+cert: ## Create the self-signed signing cert (once) so permissions survive rebuilds
+	./scripts/make-signing-cert.sh
+
+install: dmg ## Build and install into /Applications, then relaunch
+	@pkill -x ScreenSculpt 2>/dev/null || true
+	@sleep 1
+	@hdiutil attach -nobrowse -quiet build/ScreenSculpt-*.dmg -mountpoint /tmp/ssmount
+	@rm -rf /Applications/ScreenSculpt.app
+	@cp -R /tmp/ssmount/ScreenSculpt.app /Applications/
+	@hdiutil detach -quiet /tmp/ssmount
+	@echo "installed to /Applications"
+	@open /Applications/ScreenSculpt.app
 
 dmg: ## Build a distributable .dmg (Release, universal, ad-hoc signed)
 	@mkdir -p build

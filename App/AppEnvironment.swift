@@ -72,7 +72,7 @@ final class AppEnvironment {
         Task { @MainActor in
             defer { isCapturing = false }
 
-            guard await ensureScreenRecordingPermission() else { return }
+            guard await PermissionPresenter.ensureScreenRecording(permissions) else { return }
 
             do {
                 guard let image = try await operation() else { return }  // user cancelled
@@ -91,70 +91,14 @@ final class AppEnvironment {
         }
     }
 
-    // MARK: - Permissions
-
-    /// Screen Recording is requested lazily, on first capture — never at
-    /// launch. Asking a screenshot utility's worth of permissions before the
-    /// user has done anything reads as overreach.
-    private func ensureScreenRecordingPermission() async -> Bool {
-        let state = await permissions.refreshScreenRecording()
-        switch state {
-        case .granted:
-            return true
-
-        case .notDetermined:
-            // Fires the system prompt once per app identity; afterwards macOS
-            // silently ignores it and only Settings will do.
-            _ = permissions.requestScreenRecording()
-            let retry = await permissions.refreshScreenRecording()
-            if retry == .granted { return true }
-            presentPermissionSheet(
-                title: "ScreenSculpt needs permission to record the screen",
-                body: """
-                    macOS requires this for any app that captures the screen.
-
-                    Enable ScreenSculpt in System Settings → Privacy & Security → \
-                    Screen & System Audio Recording, then try again.
-                    """
-            )
-            return false
-
-        case .denied:
-            presentPermissionSheet(
-                title: "Screen recording is turned off",
-                body: permissions.advice(for: .screenRecording)
-            )
-            return false
-
-        case .staleGrant:
-            // The one that looks like a bug in the app but is not.
-            presentPermissionSheet(
-                title: "macOS is not honouring the screen recording permission",
-                body: permissions.advice(for: .screenRecording)
-            )
-            return false
-        }
-    }
-
-    private func presentPermissionSheet(title: String, body: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = body
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Later")
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
-            permissions.openSettings(for: .screenRecording)
-        }
-    }
-
     private func presentCaptureError(_ error: CaptureError) {
         switch error {
         case .permissionDenied, .permissionStale:
-            presentPermissionSheet(
+            PermissionPresenter.present(
+                permissions,
                 title: "Screen recording permission is needed",
-                body: permissions.advice(for: .screenRecording)
+                body: permissions.advice(for: .screenRecording),
+                offerRelaunch: true
             )
         default:
             announce("Screenshot failed", body: error.localizedDescription)
@@ -293,10 +237,13 @@ final class AppEnvironment {
                 \(Exporter.defaultFolder.path)
                 """
             alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Relaunch ScreenSculpt")
             alert.addButton(withTitle: "Done")
             NSApp.activate(ignoringOtherApps: true)
-            if alert.runModal() == .alertFirstButtonReturn {
-                permissions.openSettings(for: .screenRecording)
+            switch alert.runModal() {
+            case .alertFirstButtonReturn: permissions.openSettings(for: .screenRecording)
+            case .alertSecondButtonReturn: permissions.relaunch()
+            default: break
             }
         }
     }
@@ -306,7 +253,8 @@ final class AppEnvironment {
         case .granted: "granted"
         case .denied: "denied"
         case .notDetermined: "not yet requested"
-        case .staleGrant: "listed as approved, but not working"
+        case .needsRelaunch: "granted — reopen ScreenSculpt to apply it"
+        case .staleGrant: "approved, but recorded against an older build"
         }
     }
 

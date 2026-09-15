@@ -13,6 +13,16 @@ import SSPlatform
 @main
 enum ScreenSculptMain {
     static func main() {
+        // `--diagnose` prints permission state and exits. It must run before
+        // the app activates, so nothing appears on screen.
+        if CommandLine.arguments.contains("--diagnose") {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task { @MainActor in await Diagnostics.runAndExit() }
+            app.run()
+            return
+        }
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
