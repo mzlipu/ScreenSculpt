@@ -26,18 +26,37 @@ extension AppEnvironment {
             defer { isCapturing = false }
             guard await PermissionPresenter.ensureScreenRecording(permissions) else { return }
 
+            // Decide how the page will be scrolled before asking for a region.
+            // Checking afterwards meant dragging out a selection, being sent to
+            // System Settings, and returning to find the selection gone.
+            guard let mode = await chooseScrollMode() else { return }
+
             guard let selection = try? await areaSelection.selectRegion() else { return }
             let region = selection.rect
 
-            guard ensureAccessibility() else { return }
-
             let controller = ScrollingCaptureController(captureService: captureService)
-            let panel = ScrollProgressPanel(region: region)
+            let panel = StatusPanel(
+                title: mode == .manual ? "Scroll the page yourself" : "Scrolling capture",
+                region: region
+            )
+            if mode == .manual {
+                panel.update("Scroll the window · click Done when finished")
+                panel.setPrimaryButton("Done")
+            }
             panel.show()
 
             do {
-                let result = try await controller.capture(area: region) { progress in
-                    panel.update(frames: progress.frames, rows: progress.rows)
+                let result: StitchResult = switch mode {
+                case .automatic:
+                    try await controller.capture(area: region) { progress in
+                        panel.update("\(progress.frames) frames · \(progress.rows) px")
+                    }
+                case .manual:
+                    try await controller.captureManually(area: region) {
+                        panel.wasCancelled
+                    } onProgress: { progress in
+                        panel.update("\(progress.frames) frames · \(progress.rows) px")
+                    }
                 }
                 panel.close()
                 deliverScroll(result, controller: controller)
@@ -48,26 +67,85 @@ extension AppEnvironment {
         }
     }
 
-    /// Ask for Accessibility, explaining what it is for first.
-    private func ensureAccessibility() -> Bool {
-        if permissions.refreshAccessibility() == .granted { return true }
+    enum ScrollMode { case automatic, manual }
+
+    /// Pick between letting the app scroll and scrolling by hand.
+    ///
+    /// Manual is offered as an equal, not as a consolation: it needs no
+    /// permission at all, works in applications that ignore synthesised input,
+    /// and scrolls sideways as happily as down. Someone who would rather not
+    /// hand a screenshot tool the ability to send input should not thereby lose
+    /// the feature.
+    private func chooseScrollMode() async -> ScrollMode? {
+        if permissions.refreshAccessibility() == .granted { return .automatic }
 
         let alert = NSAlert()
-        alert.messageText = "Let ScreenSculpt scroll for you"
+        alert.messageText = "How should the page be scrolled?"
         alert.informativeText = """
-            To capture a page taller than the screen, ScreenSculpt scrolls the \
-            window a little at a time and joins the frames together. macOS calls \
-            that Accessibility access.
+            ScreenSculpt captures a page taller than the screen by joining \
+            frames together as the page scrolls.
 
-            It is used only while a scrolling capture is running, and only to \
-            send scroll input to the window you picked.
+            It can scroll the window for you, which macOS calls Accessibility \
+            access — used only while a capture is running, and only on the \
+            window you pick. Or you can scroll yourself and it will watch, \
+            which needs no permission.
             """
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Not Now")
-        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        alert.addButton(withTitle: "I'll Scroll It Myself")
+        alert.addButton(withTitle: "Let ScreenSculpt Scroll")
+        alert.addButton(withTitle: "Cancel")
 
-        _ = permissions.requestAccessibility()
-        permissions.openSettings(for: .accessibility)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            return .manual
+        case .alertSecondButtonReturn:
+            // Registers the app in the Accessibility list, so there is
+            // something to switch on rather than a + button and a file picker.
+            _ = permissions.requestAccessibility()
+            permissions.openSettings(for: .accessibility)
+            return await waitForAccessibility() ? .automatic : nil
+        default:
+            return nil
+        }
+    }
+
+    /// Poll until the grant appears, then carry on.
+    ///
+    /// The grant is made in another process, so the app cannot be told when it
+    /// happens — it has to look. Aborting and asking the user to start over is
+    /// the common shape here and a poor one: they have just done what was
+    /// asked, and the reward is to repeat themselves.
+    private func waitForAccessibility() async -> Bool {
+        let panel = StatusPanel(title: "Waiting for permission", region: nil)
+        panel.update("Turn on ScreenSculpt in System Settings…")
+        panel.show()
+
+        let deadline = ContinuousClock.now + .seconds(180)
+        var elapsed = 0
+        while ContinuousClock.now < deadline, !panel.wasCancelled {
+            if permissions.refreshAccessibility() == .granted {
+                panel.close()
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(400))
+            elapsed += 400
+            if elapsed == 20_000 {
+                panel.update("Still waiting — a relaunch may be needed.")
+            }
+        }
+        panel.close()
+        guard !panel.wasCancelled else { return false }
+
+        // A grant that is visibly on but not in effect means the process must
+        // start again to pick it up.
+        let retry = NSAlert()
+        retry.messageText = "ScreenSculpt still does not have Accessibility access"
+        retry.informativeText = """
+            If it is already switched on in System Settings, the app needs to \
+            start again to pick it up.
+            """
+        retry.addButton(withTitle: "Relaunch")
+        retry.addButton(withTitle: "Cancel")
+        if retry.runModal() == .alertFirstButtonReturn { permissions.relaunch() }
         return false
     }
 
@@ -130,56 +208,74 @@ extension AppEnvironment {
     }
 }
 
-/// A small floating panel showing how the capture is going.
+/// A small floating panel for work that takes a while.
 ///
-/// Deliberately placed outside the captured region — anything overlapping it
+/// Positioned clear of the region being captured — anything overlapping it
 /// would be photographed into the result.
 @MainActor
-final class ScrollProgressPanel {
+final class StatusPanel {
 
     private let panel: NSPanel
     private let label: NSTextField
+    private var button: NSButton!
+    private(set) var wasCancelled = false
 
-    init(region: ScreenRect) {
+    init(title: String, region: ScreenRect?) {
         label = NSTextField(labelWithString: "Starting…")
         label.alignment = .center
         label.font = .systemFont(ofSize: 13, weight: .medium)
 
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 260, height: 56),
-            styleMask: [.titled, .utilityWindow, .hudWindow],
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 88),
+            // Non-activating: in manual mode the user has to keep scrolling the
+            // window behind this, and a panel that steals focus would put the
+            // scroll somewhere else.
+            styleMask: [.titled, .utilityWindow, .hudWindow, .nonactivatingPanel],
             backing: .buffered, defer: false
         )
-        panel.title = "Scrolling capture"
+        panel.title = title
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.hidesOnDeactivate = false
         panel.contentView?.addSubview(label)
-        label.frame = NSRect(x: 12, y: 14, width: 236, height: 22)
+        label.frame = NSRect(x: 12, y: 50, width: 276, height: 22)
+
+        button = NSButton(title: "Cancel", target: self, action: #selector(cancel))
+        button.bezelStyle = .rounded
+        button.frame = NSRect(x: 110, y: 12, width: 80, height: 28)
+        panel.contentView?.addSubview(button)
 
         position(avoiding: region)
     }
 
-    /// Keep clear of the region being captured.
-    private func position(avoiding region: ScreenRect) {
+    @objc private func cancel() { wasCancelled = true }
+
+    /// In manual mode the button ends the capture rather than abandoning it, so
+    /// it should not say Cancel.
+    func setPrimaryButton(_ title: String) {
+        button.title = title
+        button.keyEquivalent = "\r"
+    }
+
+    private func position(avoiding region: ScreenRect?) {
         guard let screen = NSScreen.main else { panel.center(); return }
         let visible = screen.visibleFrame
-        let cocoa = CocoaBridge.toCocoa(region, topology: CocoaBridge.currentTopology())
-        let below = cocoa.maxY + 20 > visible.maxY - 80
-
+        var below = false
+        if let region {
+            let cocoa = CocoaBridge.toCocoa(region, topology: CocoaBridge.currentTopology())
+            below = cocoa.maxY + 20 > visible.maxY - 110
+        }
         panel.setFrameOrigin(
             NSPoint(
-                x: visible.midX - 130,
-                y: below ? visible.minY + 24 : visible.maxY - 90
+                x: visible.midX - 150,
+                y: below ? visible.minY + 24 : visible.maxY - 120
             )
         )
     }
 
     func show() { panel.orderFrontRegardless() }
 
-    func update(frames: Int, rows: Int) {
-        label.stringValue = "\(frames) frames · \(rows) px"
-    }
+    func update(_ text: String) { label.stringValue = text }
 
     func close() { panel.orderOut(nil) }
 }

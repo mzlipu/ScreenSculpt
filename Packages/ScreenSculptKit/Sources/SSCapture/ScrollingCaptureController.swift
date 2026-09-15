@@ -49,6 +49,17 @@ public final class ScrollingCaptureController {
         public var settleInterval = Duration.milliseconds(50)
         /// Consecutive identical captures required before a frame is accepted.
         public var settleConfirmations = 2
+        /// Manual mode: how often to look at the page.
+        public var manualPollInterval = Duration.milliseconds(120)
+        /// Manual mode: how long the page may sit still, once scrolling has
+        /// started, before the capture is considered finished.
+        public var manualIdleTimeout = Duration.seconds(4)
+        /// Manual mode: how long to wait for scrolling to begin at all.
+        ///
+        /// Much longer than the idle timeout, because the user has to reach the
+        /// window and start scrolling. Short of this the capture would end
+        /// before they had begun.
+        public var manualStartTimeout = Duration.seconds(30)
         public init() {}
     }
 
@@ -142,6 +153,99 @@ public final class ScrollingCaptureController {
 
         let result = session.finish()
         guard !result.isEmpty else { throw ScrollingCaptureError.noContentCaptured }
+        return result
+    }
+
+    /// Capture a region the user scrolls themselves.
+    ///
+    /// Needs no Accessibility grant, which is the whole point of having it:
+    /// the automatic mode has to be allowed to send input, and a fair number of
+    /// people will decline that — reasonably, for a screenshot tool. It is also
+    /// the fallback when an application ignores synthesised scroll entirely,
+    /// and it works horizontally and in any application, because the app is
+    /// only watching.
+    ///
+    /// The settle detector and the stitcher are the same ones the automatic
+    /// mode uses; only the source of the movement differs.
+    public func captureManually(
+        area: ScreenRect,
+        options: Options = Options(),
+        shouldStop: @MainActor () -> Bool = { false },
+        onProgress: @MainActor (Progress) -> Void = { _ in }
+    ) async throws -> StitchResult {
+        guard area.height.value >= 200 else { throw ScrollingCaptureError.regionTooSmall }
+
+        let first = try await captureService.capture(CaptureRequest(mode: .area(area)))
+        guard var committed = GrayFrame(first.image.cgImage) else {
+            throw ScrollingCaptureError.noContentCaptured
+        }
+        let session = try StitchSession(
+            firstFrame: first.image.cgImage, pixelScale: first.provenance.pixelScale
+        )
+        self.session = session
+
+        var previousPoll: GrayFrame?
+        var idle = Duration.zero
+        var frames = 1
+
+        while !shouldStop(), frames < options.maximumFrames {
+            try await Task.sleep(for: options.manualPollInterval)
+            let shot = try await captureService.capture(CaptureRequest(mode: .area(area)))
+            guard let gray = GrayFrame(shot.image.cgImage) else { continue }
+
+            if gray.matches(committed) {
+                // Back where the last accepted frame was: nothing new yet.
+                idle += options.manualPollInterval
+                // Waiting to start is not the same as having finished, so the
+                // two get different allowances. Sharing one would either end
+                // the capture before the user reached the window, or leave a
+                // page that never scrolls polling until the frame ceiling.
+                let allowance = frames > 1
+                    ? options.manualIdleTimeout
+                    : options.manualStartTimeout
+                if idle >= allowance { break }
+                previousPoll = gray
+                continue
+            }
+            idle = .zero
+
+            // Only commit once the page has stopped, or a frame caught
+            // mid-scroll would be stitched and every later offset measured
+            // from a blur.
+            guard let previous = previousPoll, previous.matches(gray) else {
+                previousPoll = gray
+                continue
+            }
+
+            switch session.add(shot.image.cgImage) {
+            case .buffered, .appended:
+                committed = gray
+                previousPoll = gray
+                frames += 1
+                onProgress(Progress(frames: frames, rows: session.canvas.filledRows))
+            case .reachedEnd:
+                previousPoll = gray
+            case .unreliable(let reason):
+                session.note(
+                    "Stopped early: \(reason) Scrolling in smaller steps keeps enough "
+                        + "overlap between frames."
+                )
+                let partial = session.finish()
+                guard partial.frameCount > 1 else {
+                    throw ScrollingCaptureError.stalled(
+                        reason + " Try scrolling more slowly, a little at a time."
+                    )
+                }
+                return partial
+            }
+        }
+
+        let result = session.finish()
+        guard result.frameCount > 1 else {
+            throw ScrollingCaptureError.stalled(
+                "No scrolling was detected. Scroll the window while the capture is running."
+            )
+        }
         return result
     }
 

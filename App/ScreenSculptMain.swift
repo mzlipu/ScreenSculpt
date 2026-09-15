@@ -23,6 +23,16 @@ enum ScreenSculptMain {
             return
         }
 
+        // `--scroll-probe` drives a real window and reports each stage. The
+        // driver cannot be unit tested, so this is how it gets checked.
+        if CommandLine.arguments.contains("--scroll-probe") {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task { @MainActor in await ScrollProbe.runAndExit() }
+            app.run()
+            return
+        }
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
