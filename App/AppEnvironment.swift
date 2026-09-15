@@ -8,21 +8,28 @@ import SSDocument
 import SSEditorUI
 import SSExport
 import SSGeometry
+import SSHotKeys
 import SSImaging
+import SSPersistence
 import SSPlatform
+import SSSettingsUI
 
 /// Composition root — the only place services are constructed and wired.
 @MainActor
 final class AppEnvironment {
 
     private let captureService: any CaptureService = ScreenCaptureKitService()
-    private let permissions = PermissionBroker()
+    let permissions = PermissionBroker()
+    let settings = SettingsStore()
     private lazy var areaSelection = AreaSelectionController(captureService: captureService)
+    private lazy var hotKeys = HotKeyCenter(settings: settings)
+    private lazy var permissionBridge = PermissionBridge(broker: permissions)
+    var settingsWindow: SettingsWindowController?
 
-    private var statusItem: NSStatusItem?
+    var statusItem: NSStatusItem?
     private var isCapturing = false
-    private var confirmationTask: Task<Void, Never>?
-    private var lastReceiptURL: URL?
+    var confirmationTask: Task<Void, Never>?
+    var lastReceiptURL: URL?
 
     /// Open editors, retained here because NSWindowController does not retain
     /// itself and the window would otherwise vanish immediately.
@@ -33,8 +40,42 @@ final class AppEnvironment {
     func start() {
         installStatusItem()
         MainMenuBuilder.install(target: self)
+        installHotKeys()
+        applyAppearanceSettings()
         Task { await permissions.refreshScreenRecording() }
         promptToMoveIfTranslocated()
+    }
+
+    /// Global shortcuts, live from launch.
+    private func installHotKeys() {
+        hotKeys.onTrigger = { [weak self] id in
+            guard let self else { return }
+            switch id {
+            case .captureArea: captureArea()
+            case .captureFullscreen: captureFullscreen()
+            case .captureWindow: captureActiveWindow()
+            case .captureRepeat: captureArea()      // repeat-region lands with Phase 2
+            case .captureDelayed: captureFullscreen()
+            case .recogniseText: captureArea()      // OCR lands with Phase 4
+            case .showApp: showEditor()
+            }
+        }
+        hotKeys.registerAll()
+    }
+
+    private func applyAppearanceSettings() {
+        // Hiding the Dock icon is a policy change, not a window change.
+        NSApp.setActivationPolicy(settings[Settings.showDockIcon] ? .regular : .accessory)
+        statusItem?.isVisible = !settings[Settings.hideMenuBarIcon]
+    }
+
+    @objc func showSettings() {
+        if settingsWindow == nil {
+            settingsWindow = SettingsWindowController(
+                settings: settings, hotKeys: hotKeys, permissions: permissionBridge
+            )
+        }
+        settingsWindow?.present()
     }
 
     func stop() {
@@ -51,9 +92,16 @@ final class AppEnvironment {
     // MARK: - Capture actions
 
     @objc func captureFullscreen() {
+        let cursor = cursorPolicy
         runCapture { [captureService] in
-            try await captureService.capture(CaptureRequest(mode: .fullscreen(displayID: nil)))
+            try await captureService.capture(
+                CaptureRequest(mode: .fullscreen(displayID: nil), cursor: cursor)
+            )
         }
+    }
+
+    private var cursorPolicy: CursorPolicy {
+        settings[Settings.cursor] == .include ? .include : .exclude
     }
 
     @objc func captureArea() {
@@ -78,6 +126,44 @@ final class AppEnvironment {
         }
     }
 
+    /// Route the result according to the "after a capture" preference.
+    private func deliver(_ result: CaptureResult) {
+        let action = settings[Settings.afterCapture]
+
+        if action.opensEditor {
+            openEditor(for: result)
+            return
+        }
+
+        var parts: [String] = []
+        if action.copies, (try? ClipboardWriter.copy(result.image)) != nil {
+            parts.append("copied")
+        }
+        if action.saves, let receipt = saveImage(result.image) {
+            parts.append(receipt.url.lastPathComponent)
+            announce("Saved", body: parts.joined(separator: " · "), revealing: receipt.url)
+            return
+        }
+        announce("Captured", body: parts.isEmpty ? "Done" : parts.joined(separator: " · "))
+    }
+
+    /// Saving honours the folder, format and downscale preferences.
+    @discardableResult
+    func saveImage(_ image: RasterImage) -> ExportReceipt? {
+        let format: SaveFormat = switch settings[Settings.saveFormat] {
+        case .auto: .auto
+        case .png: .png
+        case .jpeg: .jpeg
+        }
+        return try? Exporter.save(
+            image,
+            to: settings.screenshotFolder,
+            format: format,
+            downscaleToOneX: settings[Settings.downscaleRetina],
+            template: settings[Settings.filenameTemplate]
+        )
+    }
+
     /// Shared pipeline: check permission, capture, then save and copy.
     private func runCapture(_ operation: @escaping () async throws -> CaptureResult?) {
         guard !isCapturing else { return }
@@ -90,7 +176,7 @@ final class AppEnvironment {
 
             do {
                 guard let result = try await operation() else { return }  // user cancelled
-                openEditor(for: result)
+                deliver(result)
             } catch let error as CaptureError {
                 presentCaptureError(error)
             } catch {
@@ -152,7 +238,7 @@ final class AppEnvironment {
             self?.announce("Copied", body: "Image copied to the clipboard")
         }
         controller.onSave = { [weak self] image in
-            guard let receipt = try? Exporter.save(image) else { return }
+            guard let receipt = self?.saveImage(image) else { return }
             self?.announce("Saved", body: receipt.url.lastPathComponent, revealing: receipt.url)
         }
         controller.onClose = { [weak self] in self?.editors[key] = nil }
@@ -170,8 +256,9 @@ final class AppEnvironment {
     /// user may never grant, and an unsigned build often cannot obtain it — so
     /// a capture would appear to do nothing. The menu bar is always visible and
     /// always ours.
-    private func announce(_ title: String, body: String, revealing url: URL? = nil) {
+    func announce(_ title: String, body: String, revealing url: URL? = nil) {
         lastReceiptURL = url
+        guard settings[Settings.confirmation] == .menuBar else { return }
         guard let button = statusItem?.button else { return }
 
         button.contentTintColor = .controlAccentColor
@@ -184,117 +271,6 @@ final class AppEnvironment {
             guard !Task.isCancelled else { return }
             button.contentTintColor = nil
             button.title = ""
-        }
-    }
-
-    // MARK: - Status item
-
-    private func installStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(
-            systemSymbolName: "viewfinder", accessibilityDescription: "ScreenSculpt"
-        )
-        item.button?.image?.isTemplate = true
-        item.menu = buildMenu()
-        statusItem = item
-    }
-
-    private func buildMenu() -> NSMenu {
-        let menu = NSMenu()
-
-        func add(
-            _ title: String, _ action: Selector,
-            _ key: String, _ mods: NSEvent.ModifierFlags
-        ) {
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-            item.keyEquivalentModifierMask = mods
-            item.target = self
-            menu.addItem(item)
-        }
-
-        add("Capture Area…", #selector(captureArea), "4", [.command, .shift, .control])
-        add("Capture Fullscreen", #selector(captureFullscreen), "3", [.command, .shift, .control])
-        add(
-            "Capture Active Window", #selector(captureActiveWindow), "5",
-            [.command, .shift, .control]
-        )
-
-        menu.addItem(.separator())
-
-        let folder = NSMenuItem(
-            title: "Open Screenshots Folder", action: #selector(openFolder), keyEquivalent: ""
-        )
-        folder.target = self
-        menu.addItem(folder)
-
-        let permissionsItem = NSMenuItem(
-            title: "Check Permissions…", action: #selector(checkPermissions), keyEquivalent: ""
-        )
-        permissionsItem.target = self
-        menu.addItem(permissionsItem)
-
-        menu.addItem(.separator())
-
-        let version = NSMenuItem(
-            title: "ScreenSculpt \(Self.versionString)", action: nil, keyEquivalent: ""
-        )
-        version.isEnabled = false
-        menu.addItem(version)
-
-        menu.addItem(NSMenuItem(
-            title: "Quit ScreenSculpt",
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        ))
-        return menu
-    }
-
-    @objc private func openFolder() {
-        let folder = Exporter.defaultFolder
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        if let last = lastReceiptURL, FileManager.default.fileExists(atPath: last.path) {
-            NSWorkspace.shared.activateFileViewerSelecting([last])
-        } else {
-            NSWorkspace.shared.open(folder)
-        }
-    }
-
-    @objc private func checkPermissions() {
-        Task { @MainActor in
-            let screen = await permissions.refreshScreenRecording()
-            let axState = permissions.refreshAccessibility()
-
-            let alert = NSAlert()
-            alert.messageText = "Permissions"
-            alert.informativeText = """
-                Screen Recording: \(Self.describe(screen))
-                \(permissions.advice(for: .screenRecording))
-
-                Accessibility: \(Self.describe(axState))
-                Only needed for automatic scrolling capture, which is not built yet.
-
-                Screenshots folder:
-                \(Exporter.defaultFolder.path)
-                """
-            alert.addButton(withTitle: "Open System Settings")
-            alert.addButton(withTitle: "Relaunch ScreenSculpt")
-            alert.addButton(withTitle: "Done")
-            NSApp.activate(ignoringOtherApps: true)
-            switch alert.runModal() {
-            case .alertFirstButtonReturn: permissions.openSettings(for: .screenRecording)
-            case .alertSecondButtonReturn: permissions.relaunch()
-            default: break
-            }
-        }
-    }
-
-    private static func describe(_ state: PermissionState) -> String {
-        switch state {
-        case .granted: "granted"
-        case .denied: "denied"
-        case .notDetermined: "not yet requested"
-        case .needsRelaunch: "granted — reopen ScreenSculpt to apply it"
-        case .staleGrant: "approved, but recorded against an older build"
         }
     }
 

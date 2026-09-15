@@ -41,7 +41,9 @@ enum MainMenuBuilder {
             keyEquivalent: ""
         )
         menu.addItem(.separator())
-        menu.addItem(stub("Settings…", key: ","))
+        menu.addItem(live(
+            "Settings…", #selector(AppEnvironment.showSettings), ",", [.command]
+        ))
         menu.addItem(.separator())
         menu.addItem(
             withTitle: "Hide ScreenSculpt",
