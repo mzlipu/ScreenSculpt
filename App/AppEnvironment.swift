@@ -23,7 +23,9 @@ final class AppEnvironment {
     let permissions = PermissionBroker()
     let settings = SettingsStore()
     private lazy var areaSelection = AreaSelectionController(captureService: captureService)
-    private lazy var hotKeys = HotKeyCenter(settings: settings)
+    /// Not private: the status menu reads it so the shortcuts it shows are the
+    /// ones actually registered.
+    lazy var hotKeys = HotKeyCenter(settings: settings)
     private lazy var permissionBridge = PermissionBridge(broker: permissions)
     var settingsWindow: SettingsWindowController?
 
@@ -222,6 +224,14 @@ final class AppEnvironment {
     /// Deliberately never opens the editor: the point of this mode is to get
     /// text out of something unselectable in one gesture.
     @objc func recogniseTextFromScreen() {
+        // A global hotkey is registered exclusively, so it fires even while an
+        // editor is frontmost — shadowing that window's own Recognise Text item.
+        // Route it back there, or the same keystroke would mean two different
+        // things depending on which one macOS happened to deliver it to.
+        if let editor = NSApp.keyWindow?.windowController as? EditorWindowController {
+            editor.recogniseText()
+            return
+        }
         guard !isCapturing else { return }
         isCapturing = true
 

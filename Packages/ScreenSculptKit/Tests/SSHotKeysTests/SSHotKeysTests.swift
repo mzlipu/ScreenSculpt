@@ -68,15 +68,53 @@ struct HotKeyBindingTests {
         #expect(try JSONDecoder().decode(HotKeyBinding.self, from: data) == binding)
     }
 
+    /// The combinations macOS ships enabled out of the box, from
+    /// `com.apple.symbolichotkeys` ids 28, 29, 30, 31 and 184.
+    ///
+    /// Hardcoded rather than read from the running system: the test has to hold
+    /// for every user's Mac, not just one where somebody happened to disable a
+    /// shortcut.
+    static let factoryScreenshotShortcuts: [HotKeyBinding] = [
+        HotKeyBinding(keyCode: 20, cocoa: [.shift, .command]),              // ⇧⌘3
+        HotKeyBinding(keyCode: 20, cocoa: [.control, .shift, .command]),    // ⌃⇧⌘3
+        HotKeyBinding(keyCode: 21, cocoa: [.shift, .command]),              // ⇧⌘4
+        HotKeyBinding(keyCode: 21, cocoa: [.control, .shift, .command]),    // ⌃⇧⌘4
+        HotKeyBinding(keyCode: 23, cocoa: [.shift, .command]),              // ⇧⌘5
+    ]
+
+    /// Registering a combination macOS owns *appears* to succeed and then never
+    /// fires, so a collision here is invisible at runtime — the test is the only
+    /// place it shows up.
     @Test("Defaults avoid the system screenshot shortcuts")
     func defaultsAvoidSystemShortcuts() {
-        // macOS owns Shift-Command-3/4/5 and wins silently, so every default
-        // must carry Control as well.
         for id in HotKeyID.allCases {
             guard let binding = id.defaultBinding else { continue }
-            #expect(binding.cocoaModifiers.contains(.control), "\(id.label) would collide")
+            #expect(
+                !Self.factoryScreenshotShortcuts.contains(binding),
+                "\(id.label) is bound to \(binding.displayString), which macOS owns"
+            )
             #expect(binding.isPermissible)
         }
+    }
+
+    @Test("Defaults are the combinations the product documents")
+    func defaultsAreAsDocumented() {
+        #expect(HotKeyID.captureFullscreen.defaultBinding?.displayString == "⇧⌘1")
+        #expect(HotKeyID.captureArea.defaultBinding?.displayString == "⇧⌘2")
+        #expect(HotKeyID.recogniseText.defaultBinding?.displayString == "⇧⌘O")
+    }
+
+    /// The migration's whole purpose: adopt a new default only where the user
+    /// never expressed a preference.
+    @Test("A superseded default is distinguishable from a chosen binding")
+    func legacyDefaultsAreRecorded() {
+        for id in HotKeyID.allCases {
+            guard let legacy = HotKeyID.legacyDefaultBinding(for: id) else { continue }
+            #expect(legacy != id.defaultBinding || id == .captureWindow || id == .captureRepeat)
+        }
+        // Unchanged between revisions, so migration must leave them alone.
+        #expect(HotKeyID.legacyDefaultBinding(for: .captureWindow)
+            == HotKeyID.captureWindow.defaultBinding)
     }
 
     @Test("Every command has a distinct Carbon id")
