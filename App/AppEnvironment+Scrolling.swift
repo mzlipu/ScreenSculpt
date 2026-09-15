@@ -98,6 +98,7 @@ extension AppEnvironment {
         case .alertFirstButtonReturn:
             return .manual
         case .alertSecondButtonReturn:
+            guard confirmSingleInstallation() else { return nil }
             // Registers the app in the Accessibility list, so there is
             // something to switch on rather than a + button and a file picker.
             _ = permissions.requestAccessibility()
@@ -105,6 +106,45 @@ extension AppEnvironment {
             return await waitForAccessibility() ? .automatic : nil
         default:
             return nil
+        }
+    }
+
+    /// Warn when more than one copy exists, before the grant is attempted.
+    ///
+    /// macOS records a permission against one *copy* of an application, so a
+    /// second bundle sharing the identifier gets a separate entry — and the
+    /// Privacy list shows both as plain "ScreenSculpt" with no path to tell
+    /// them apart. Switching on the wrong one is indistinguishable from
+    /// switching on the right one and being ignored, which is a very long way
+    /// to chase a problem that a sentence here prevents.
+    private func confirmSingleInstallation() -> Bool {
+        let copies = permissions.duplicateInstallations()
+        guard copies.count > 1 else { return true }
+
+        let alert = NSAlert()
+        alert.messageText = "There is more than one copy of ScreenSculpt"
+        alert.informativeText = """
+            macOS grants permission to a particular copy of an app, and the \
+            Accessibility list shows every copy under the same name. Granting \
+            it to the wrong one looks like it worked and does nothing.
+
+            Copies found:
+            \(copies.map { "  • \($0.path)" }.joined(separator: "\n"))
+
+            Keep the one in /Applications and delete the rest, then try again.
+            """
+        alert.addButton(withTitle: "Show Me")
+        alert.addButton(withTitle: "Continue Anyway")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            NSWorkspace.shared.activateFileViewerSelecting(copies)
+            return false
+        case .alertSecondButtonReturn:
+            return true
+        default:
+            return false
         }
     }
 
@@ -137,15 +177,33 @@ extension AppEnvironment {
 
         // A grant that is visibly on but not in effect means the process must
         // start again to pick it up.
+        // A switch that is visibly on while the app is still refused means the
+        // entry was recorded against a different build or a different copy.
+        // Toggling it off and on keeps the stale record; removing the row
+        // discards it, and the next request writes a fresh one.
         let retry = NSAlert()
         retry.messageText = "ScreenSculpt still does not have Accessibility access"
         retry.informativeText = """
-            If it is already switched on in System Settings, the app needs to \
-            start again to pick it up.
+            If the switch is already on, the entry belongs to an older build \
+            and no longer matches this one. Turning it off and on again keeps \
+            that stale entry.
+
+            Select ScreenSculpt in the Accessibility list, remove it with the \
+            minus button, then add this copy back:
+            \(Bundle.main.bundleURL.path)
+
+            Or reset it from Terminal and try again:
+            \(permissions.resetCommand(for: .accessibility))
             """
+        retry.addButton(withTitle: "Open System Settings")
         retry.addButton(withTitle: "Relaunch")
         retry.addButton(withTitle: "Cancel")
-        if retry.runModal() == .alertFirstButtonReturn { permissions.relaunch() }
+
+        switch retry.runModal() {
+        case .alertFirstButtonReturn: permissions.openSettings(for: .accessibility)
+        case .alertSecondButtonReturn: permissions.relaunch()
+        default: break
+        }
         return false
     }
 

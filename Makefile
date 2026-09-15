@@ -51,6 +51,15 @@ install: dmg ## Build and install into /Applications, then relaunch
 	@rm -rf /Applications/ScreenSculpt.app
 	@cp -R /tmp/ssmount/ScreenSculpt.app /Applications/
 	@hdiutil detach -quiet /tmp/ssmount
+	# Remove every other copy of the bundle. macOS records a permission grant
+	# against one *copy* of an app, so a second bundle with the same identifier
+	# gets its own entry — and the Privacy list shows both as plain
+	# "ScreenSculpt" with no path. Granting Accessibility to the wrong one is
+	# indistinguishable from granting it to the right one and being ignored.
+	# Xcode recreates these on the next build; nothing is lost.
+	@rm -rf build/*/ScreenSculpt.app 2>/dev/null || true
+	@rm -rf "$$HOME"/Library/Developer/Xcode/DerivedData/ScreenSculpt-*/Build/Products/*/ScreenSculpt.app \
+	  2>/dev/null || true
 	@echo "installed to /Applications"
 	@open /Applications/ScreenSculpt.app
 
