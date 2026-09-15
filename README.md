@@ -44,9 +44,9 @@ only capture path available, and its screenshot API starts at 14.0.
 
 ## Installing
 
-> Nothing to install yet. When there is, this section will lead with the
-> `curl` one-liner below, because it is the only path with no Gatekeeper
-> friction at all.
+> No public release yet — the URLs below are placeholders. To build a local
+> `.dmg` right now: `make dmg`, which writes `build/ScreenSculpt-<version>.dmg`.
+> Full walkthrough in [docs/USAGE.md](docs/USAGE.md).
 
 ScreenSculpt is **not signed with a paid Apple certificate**. That is a
 deliberate trade — the project has no revenue and an Apple Developer membership
