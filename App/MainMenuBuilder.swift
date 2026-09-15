@@ -2,6 +2,7 @@
 // Copyright (c) 2026 The ScreenSculpt Authors
 
 import AppKit
+import SSEditorUI
 
 /// Builds the main menu bar in code.
 ///
@@ -79,8 +80,8 @@ enum MainMenuBuilder {
 
     private static func fileMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "File")
-        menu.addItem(stub("Copy Image", key: "c"))
-        menu.addItem(stub("Save Image", key: "s"))
+        menu.addItem(responder("Copy Image", #selector(EditorWindowController.copyImage), "c"))
+        menu.addItem(responder("Save Image", #selector(EditorWindowController.saveImage), "s"))
         menu.addItem(stub("Save Image As…", key: "S", modifiers: [.command, .shift]))
         menu.addItem(stub("Upload Image", key: "e"))
         menu.addItem(stub("Pin to Screen", key: "p"))
@@ -97,10 +98,15 @@ enum MainMenuBuilder {
 
     private static func editMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "Edit")
-        menu.addItem(stub("Undo", key: "z"))
-        menu.addItem(stub("Redo", key: "Z", modifiers: [.command, .shift]))
+        menu.addItem(responder("Undo", #selector(EditorWindowController.undo), "z"))
+        menu.addItem(responder(
+            "Redo", #selector(EditorWindowController.redo), "Z", [.command, .shift]
+        ))
         menu.addItem(.separator())
-        menu.addItem(stub("Reset Crop"))
+        menu.addItem(responder(
+            "Crop to Selection", #selector(EditorWindowController.cropToSelection), "k"
+        ))
+        menu.addItem(responder("Reset Crop", #selector(EditorWindowController.resetCrop), ""))
         // Flatten is one more RasterOp, so unlike most implementations of this
         // command it is undoable.
         menu.addItem(stub("Flatten Annotations"))
@@ -153,11 +159,15 @@ enum MainMenuBuilder {
 
     private static func zoomMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "Zoom")
-        menu.addItem(stub("Zoom In", key: "+"))
-        menu.addItem(stub("Zoom Out", key: "-"))
-        menu.addItem(stub("Zoom to Fit", key: "1"))
-        menu.addItem(stub("Actual Size (100%)", key: "0"))
-        menu.addItem(stub("Zoom to Selection", key: "2"))
+        menu.addItem(responder("Zoom In", #selector(EditorWindowController.zoomIn), "+"))
+        menu.addItem(responder("Zoom Out", #selector(EditorWindowController.zoomOut), "-"))
+        menu.addItem(responder("Zoom to Fit", #selector(EditorWindowController.zoomToFit), "1"))
+        menu.addItem(responder(
+            "Actual Size (100%)", #selector(EditorWindowController.zoomToActualSize), "0"
+        ))
+        menu.addItem(responder(
+            "Zoom to Selection", #selector(EditorWindowController.zoomToSelection), "2"
+        ))
         menu.addItem(.separator())
         menu.addItem(stub("Selection Top Left", key: "q", modifiers: []))
         menu.addItem(stub("Selection Bottom Right", key: "w", modifiers: []))
@@ -206,6 +216,18 @@ enum MainMenuBuilder {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.submenu = menu
         menu.title = title
+        return item
+    }
+
+    /// A menu item dispatched through the responder chain, so it targets
+    /// whichever editor window is frontmost and is greyed out when none is.
+    private static func responder(
+        _ title: String, _ action: Selector, _ key: String,
+        _ modifiers: NSEvent.ModifierFlags = [.command]
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        if !key.isEmpty { item.keyEquivalentModifierMask = modifiers }
+        item.target = nil          // nil target = responder chain
         return item
     }
 

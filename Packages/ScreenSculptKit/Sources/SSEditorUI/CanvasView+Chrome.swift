@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 The ScreenSculpt Authors
+
+import AppKit
+import SSDocument
+import SSGeometry
+import SSImaging
+
+/// Selection marquee, handles, pixel grid and the size readout.
+///
+/// All of it is drawn in **view points**, never image pixels, so a handle
+/// stays 9pt and the marquee stays one pixel wide whether the canvas is at
+/// 25% or 3200%.
+extension CanvasView {
+
+    // MARK: - Chrome
+    //
+    // Drawn in view points at a fixed size, so handles stay grabbable and the
+    // marquee stays one pixel wide at every zoom level.
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        if transform.pixelGridAlpha > 0 { drawPixelGrid(in: context) }
+
+        guard let selection else { return }
+        let rect = transform.toCanvas(selection).cgRect
+
+        context.setFillColor(NSColor.black.withAlphaComponent(0.35).cgColor)
+        context.addRect(bounds)
+        context.addRect(rect)
+        context.fillPath(using: .evenOdd)
+
+        context.setStrokeColor(NSColor.white.cgColor)
+        context.setLineWidth(1)
+        context.stroke(rect.insetBy(dx: -0.5, dy: -0.5))
+
+        let knob = Self.handleSide
+        context.setFillColor(NSColor.white.cgColor)
+        for point in [
+            CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+            CGPoint(x: rect.minX, y: rect.maxY), CGPoint(x: rect.maxX, y: rect.maxY),
+        ] {
+            context.fillEllipse(in: CGRect(
+                x: point.x - knob / 2, y: point.y - knob / 2, width: knob, height: knob
+            ))
+        }
+
+        drawSizeLabel(for: selection, at: rect, in: context)
+    }
+
+    /// One hairline per image pixel, faded in above 16× so it does not pop.
+    ///
+    /// This is what makes extreme zoom genuinely useful rather than merely
+    /// possible.
+    func drawPixelGrid(in context: CGContext) {
+        let alpha = transform.pixelGridAlpha
+        let step = transform.toCanvas(ImagePx(1)).cgFloat
+        guard step >= 4 else { return }
+
+        context.setStrokeColor(NSColor.white.withAlphaComponent(alpha).cgColor)
+        context.setLineWidth(1 / (window?.backingScaleFactor ?? 2))
+        context.beginPath()
+
+        let firstX = transform.toCanvas(
+            ImagePoint(x: ImagePx(transform.imageOrigin.x.value.rounded(.up)), y: .zero)
+        ).x.cgFloat
+        var x = firstX
+        while x < bounds.maxX {
+            context.move(to: CGPoint(x: x, y: bounds.minY))
+            context.addLine(to: CGPoint(x: x, y: bounds.maxY))
+            x += step
+        }
+
+        let firstY = transform.toCanvas(
+            ImagePoint(x: .zero, y: ImagePx(transform.imageOrigin.y.value.rounded(.up)))
+        ).y.cgFloat
+        var y = firstY
+        while y < bounds.maxY {
+            context.move(to: CGPoint(x: bounds.minX, y: y))
+            context.addLine(to: CGPoint(x: bounds.maxX, y: y))
+            y += step
+        }
+        context.strokePath()
+    }
+
+    func drawSizeLabel(for rect: ImageRect, at canvas: CGRect, in context: CGContext) {
+        let scale = image.pixelScale
+        let pixels = "\(Int(rect.width.value)) × \(Int(rect.height.value)) px"
+        let points = "\(Int(rect.width.inPoints(scale).value)) × "
+            + "\(Int(rect.height.inPoints(scale).value)) pt"
+        let text = scale.isRetina ? "\(pixels)   \(points)" : pixels
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: NSColor.white,
+        ]
+        let string = NSAttributedString(string: text, attributes: attributes)
+        let size = string.size()
+        var origin = CGPoint(x: canvas.minX, y: canvas.minY - size.height - 6)
+        if origin.y < 2 { origin.y = canvas.maxY + 6 }
+        origin.x = min(max(origin.x, 2), bounds.maxX - size.width - 10)
+
+        let box = CGRect(
+            x: origin.x, y: origin.y, width: size.width + 8, height: size.height + 4
+        )
+        context.setFillColor(NSColor.black.withAlphaComponent(0.75).cgColor)
+        context.fill(box)
+        string.draw(at: CGPoint(x: box.minX + 4, y: box.minY + 2))
+    }
+}

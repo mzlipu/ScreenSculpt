@@ -14,8 +14,9 @@ doctor: ## Check the toolchain is usable
 	@echo "Swift:    $$(swift --version 2>&1 | head -1)"
 	@echo "xcodegen: $$(xcodegen --version 2>&1 || echo 'NOT INSTALLED - brew install xcodegen')"
 
-bootstrap: ## Install tools and generate the Xcode project
+bootstrap: ## Install tools, create the signing cert, generate the Xcode project
 	@command -v xcodegen >/dev/null || brew install xcodegen
+	@./scripts/make-signing-cert.sh
 	@$(MAKE) generate
 
 generate: ## Regenerate ScreenSculpt.xcodeproj from project.yml
@@ -44,7 +45,9 @@ cert: ## Create the self-signed signing cert (once) so permissions survive rebui
 install: dmg ## Build and install into /Applications, then relaunch
 	@pkill -x ScreenSculpt 2>/dev/null || true
 	@sleep 1
-	@hdiutil attach -nobrowse -quiet build/ScreenSculpt-*.dmg -mountpoint /tmp/ssmount
+	@hdiutil attach -nobrowse -quiet \
+	  "build/ScreenSculpt-$$(awk -F' *= *' '/^MARKETING_VERSION/{print $$2; exit}' \
+	  Config/Version.xcconfig | tr -d ' ').dmg" -mountpoint /tmp/ssmount
 	@rm -rf /Applications/ScreenSculpt.app
 	@cp -R /tmp/ssmount/ScreenSculpt.app /Applications/
 	@hdiutil detach -quiet /tmp/ssmount

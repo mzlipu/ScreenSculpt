@@ -14,7 +14,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${1:-$(awk -F' = ' '/MARKETING_VERSION/{print $2; exit}' Config/Version.xcconfig | tr -d ' ')}"
+# Anchored: Version.xcconfig documents the CI override in a comment that also
+# contains "MARKETING_VERSION", and an unanchored match picks that up — which
+# produced a file literally named 'ScreenSculpt-${GITHUB_REF_NAME#v}.dmg'.
+VERSION="${1:-$(awk -F' *= *' '/^MARKETING_VERSION/{print $2; exit}' Config/Version.xcconfig | tr -d ' ')}"
+[ -n "$VERSION" ] || { echo "could not determine version"; exit 1; }
+
+# Commit count, not a CI run number: Sparkle compares CFBundleVersion
+# numerically, and a run number resets to 1 if the workflow file is ever
+# renamed, which would strand every existing user on a "newer" old build.
+BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 BUILD_DIR="$ROOT/build"
 STAGE="$BUILD_DIR/dmg-stage"
 DMG="$BUILD_DIR/ScreenSculpt-$VERSION.dmg"
@@ -30,6 +39,7 @@ xcodebuild build \
   -configuration Release \
   -destination 'generic/platform=macOS' \
   MARKETING_VERSION="$VERSION" \
+  CURRENT_PROJECT_VERSION="$BUILD" \
   > "$BUILD_DIR/xcodebuild.log" 2>&1 || { tail -40 "$BUILD_DIR/xcodebuild.log"; exit 1; }
 
 PRODUCTS="$(xcodebuild -project ScreenSculpt.xcodeproj -scheme ScreenSculpt \

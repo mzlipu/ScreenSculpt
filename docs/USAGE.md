@@ -1,8 +1,8 @@
 # Using ScreenSculpt
 
-> **v0.1.0 — early.** Capture, save and copy work. The editor, annotation tools,
-> measurement, OCR and scrolling capture do not exist yet; the menu items for
-> them are visible but greyed out so you can see where they will go.
+> **v0.1.0 — early.** Capture and the editor (zoom, pan, crop, undo) work.
+> Annotation tools, measurement, OCR and scrolling capture do not exist yet;
+> their menu items are visible but greyed out so you can see where they go.
 
 ## Installing
 
@@ -72,11 +72,38 @@ frontmost:
 | **Capture Fullscreen** | `⌃⇧⌘3` | The display your cursor is on |
 | **Capture Active Window** | `⌃⇧⌘5` | The frontmost window, shadow trimmed |
 
-Every capture is **saved to `~/Pictures/Screenshots` and copied to the
-clipboard**, so you can paste it straight into Slack or a document.
+Every capture **opens in the editor**. Nothing is written to disk until you ask
+— press `⌘S` to save to `~/Pictures/Screenshots`, or `⌘C` to copy.
 
-The menu bar icon flashes and briefly shows the filename to confirm. Choosing
-**Open Screenshots Folder** afterwards reveals the most recent one in Finder.
+## The editor
+
+| Action | How |
+|---|---|
+| Select a region | Drag. Shift-drag for a square |
+| Crop | Select, then **Enter** (or `⌘K`) |
+| Undo / redo | `⌘Z` / `⇧⌘Z` |
+| Reset crop | Edit → Reset Crop |
+| Zoom in / out | `⌘+` / `⌘-`, or `⌘`-scroll, or pinch |
+| Zoom to fit | `⌘1` |
+| Actual size (1:1) | `⌘0` |
+| Zoom to selection | `⌘2` |
+| Pan | Right-drag, or hold **Space** and drag, or two-finger scroll |
+| Nudge selection | Arrow keys (`⇧` for 10px) |
+| Resize selection | `⌘`+arrows (`⇧` for 10px) |
+| Grow / shrink selection | `[` and `]` |
+| Copy / Save | `⌘C` / `⌘S` |
+
+The title bar shows the size in both pixels and points, plus the zoom level.
+
+**Zoom past 100% and the image switches to nearest-neighbour**, so you see real
+pixels rather than a smoothed approximation of them. Past 16× a **pixel grid**
+fades in. This is the point of the whole app — at 3200% a one-pixel line should
+be a clean 32×32 square aligned to the grid, not a blurry smear.
+
+If a capture spanned two displays with different scale factors, the title bar
+says **"measurements unavailable"**. That is deliberate: no single
+pixels-per-point conversion is correct for such an image, so the app withholds
+the number rather than printing one that is wrong for half the picture.
 
 ### While selecting an area
 
