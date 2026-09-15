@@ -111,7 +111,6 @@ enum MainMenuBuilder {
         menu.addItem(responder("Reset Crop", #selector(EditorWindowController.resetCrop), ""))
         // Flatten is one more RasterOp, so unlike most implementations of this
         // command it is undoable.
-        menu.addItem(stub("Flatten Annotations"))
         menu.addItem(.separator())
         menu.addItem(
             withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"
@@ -135,17 +134,38 @@ enum MainMenuBuilder {
     /// disabled so the intended shape of the app is legible.
     private static func drawMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "Draw")
-        menu.addItem(stub("Select / Crop", key: "v"))
+        // Bare letters, no modifier — the convention in every drawing app.
+        menu.addItem(responder("Select", #selector(EditorWindowController.toolSelect), "v", []))
         menu.addItem(.separator())
-        menu.addItem(stub("Arrow", key: "a"))
-        menu.addItem(stub("Line", key: "l"))
-        menu.addItem(stub("Rectangle", key: "r"))
-        menu.addItem(stub("Oval", key: "o"))
-        menu.addItem(stub("Text", key: "t"))
-        menu.addItem(stub("Freehand", key: "d"))
-        menu.addItem(stub("Highlighter", key: "h"))
-        menu.addItem(stub("Blur / Conceal", key: "b"))
-        menu.addItem(stub("Counter", key: "n"))
+        menu.addItem(responder("Arrow", #selector(EditorWindowController.toolArrow), "a", []))
+        menu.addItem(responder("Line", #selector(EditorWindowController.toolLine), "l", []))
+        menu.addItem(responder(
+            "Rectangle", #selector(EditorWindowController.toolRectangle), "r", []
+        ))
+        menu.addItem(responder("Oval", #selector(EditorWindowController.toolOval), "o", []))
+        menu.addItem(responder("Text", #selector(EditorWindowController.toolText), "t", []))
+        menu.addItem(responder(
+            "Freehand", #selector(EditorWindowController.toolFreehand), "d", []
+        ))
+        menu.addItem(responder(
+            "Highlighter", #selector(EditorWindowController.toolHighlighter), "h", []
+        ))
+        menu.addItem(responder(
+            "Blur / Conceal", #selector(EditorWindowController.toolConceal), "b", []
+        ))
+        menu.addItem(responder(
+            "Counter", #selector(EditorWindowController.toolCounter), "n", []
+        ))
+        menu.addItem(.separator())
+        menu.addItem(responder(
+            "Duplicate", #selector(EditorWindowController.duplicateAnnotation), "d"
+        ))
+        menu.addItem(responder(
+            "Delete Annotation", #selector(EditorWindowController.deleteAnnotation), "\u{8}", []
+        ))
+        menu.addItem(responder(
+            "Flatten Annotations", #selector(EditorWindowController.flattenAnnotations), "e"
+        ))
         menu.addItem(.separator())
         menu.addItem(stub("Spotlight"))
         menu.addItem(stub("Magnifier"))

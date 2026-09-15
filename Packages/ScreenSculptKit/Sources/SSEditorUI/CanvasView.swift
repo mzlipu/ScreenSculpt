@@ -23,12 +23,20 @@ final class CanvasView: NSView {
     var onSelectionChanged: ((ImageRect?) -> Void)?
     var onTransformChanged: ((CanvasTransform) -> Void)?
     var onCommitCrop: (() -> Void)?
+    var onAnnotationsChanged: (() -> Void)?
 
     private(set) var transform: CanvasTransform
     var image: RasterImage
     var selection: ImageRect?
 
     private let baseLayer = CALayer()
+    let annotationLayer = AnnotationOverlayView()
+    let dragScrim = DragScrimView()
+
+    /// Set by the window controller once the store exists.
+    var tools: ToolController?
+    var store: DocumentStore?
+    var snapEngine: SnapEngine?
 
     var anchor: ImagePoint?
     var isDraggingSelection = false
@@ -60,6 +68,12 @@ final class CanvasView: NSView {
             "contents": NSNull(), "transform": NSNull(),
         ]
         layer?.addSublayer(baseLayer)
+
+        // Order matters: raster (layer) < annotations < drag scrim < chrome.
+        for view in [annotationLayer, dragScrim] as [NSView] {
+            view.autoresizingMask = [.width, .height]
+            addSubview(view)
+        }
     }
 
     @available(*, unavailable)
@@ -109,9 +123,31 @@ final class CanvasView: NSView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
+        annotationLayer.frame = bounds
+        dragScrim.frame = bounds
         layoutBase()
         needsDisplay = true
     }
+
+    /// Push document state into the annotation layers.
+    func refreshAnnotations() {
+        guard let store else { return }
+        annotationLayer.transform = transform
+        annotationLayer.annotations = store.annotations
+        annotationLayer.baseImage = store.raster.cgImage
+        annotationLayer.pixelScale = store.pixelScale
+        annotationLayer.suppressed = tools?.activeAnnotation
+        annotationLayer.needsDisplay = true
+
+        dragScrim.transform = transform
+        dragScrim.baseImage = store.raster.cgImage
+        dragScrim.pixelScale = store.pixelScale
+        dragScrim.annotation = tools?.activeAnnotation.flatMap { store.annotations[$0] }
+        dragScrim.needsDisplay = true
+    }
+
+    /// Hit tolerance in image pixels, from a fixed 9pt on screen.
+    var hitTolerance: ImagePx { transform.toImage(ViewPt(9)) }
 
     // MARK: - Zoom and pan
 
