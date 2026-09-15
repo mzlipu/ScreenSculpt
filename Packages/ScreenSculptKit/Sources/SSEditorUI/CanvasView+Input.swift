@@ -21,14 +21,50 @@ extension CanvasView {
             beginPan(event)
             return
         }
+
+        // Annotations get first refusal. Only when nothing is hit — and the
+        // select tool is active — does the drag become a crop marquee.
+        if let tools, tools.begin(
+            at: point, tolerance: hitTolerance, modifiers: event.modifierFlags
+        ) {
+            beginSnapping()
+            refreshAnnotations()
+            needsDisplay = true
+            return
+        }
+
         anchor = point
         isDraggingSelection = true
         selection = nil
+        refreshAnnotations()
         needsDisplay = true
+    }
+
+    /// Gather snap candidates once, at drag start.
+    private func beginSnapping() {
+        guard let store, let tools else { return }
+        snapEngine = SnapEngine(
+            candidates: store.annotations.snapCandidates(excluding: tools.activeAnnotation),
+            canvasBounds: ImageRect(size: store.size),
+            // A fixed 7pt on screen, so snapping feels identical at any zoom.
+            threshold: transform.toImage(ViewPt(7))
+        )
     }
 
     override func mouseDragged(with event: NSEvent) {
         if isPanning { continuePan(event); return }
+
+        if let tools, tools.gestureIsActive {
+            tools.drag(
+                to: imagePoint(from: event),
+                modifiers: event.modifierFlags,
+                snap: &snapEngine
+            )
+            refreshAnnotations()
+            needsDisplay = true
+            return
+        }
+
         guard isDraggingSelection, let anchor else { return }
 
         var current = imagePoint(from: event)
@@ -50,6 +86,16 @@ extension CanvasView {
 
     override func mouseUp(with event: NSEvent) {
         if isPanning { endPan(); return }
+
+        if let tools, tools.gestureIsActive {
+            tools.end()
+            snapEngine = nil
+            onAnnotationsChanged?()
+            refreshAnnotations()
+            needsDisplay = true
+            return
+        }
+
         isDraggingSelection = false
         anchor = nil
         onSelectionChanged?(selection)
@@ -119,7 +165,8 @@ extension CanvasView {
 
         switch characters {
         case "\r": onCommitCrop?()
-        case "\u{1b}": selection = nil; needsDisplay = true; onSelectionChanged?(nil)
+        case "\u{1b}": handleEscape()
+        case String(UnicodeScalar(NSDeleteCharacter)!), "\u{7f}": handleDelete()
         case String(UnicodeScalar(NSUpArrowFunctionKey)!): nudge(dy: -step, resize: command)
         case String(UnicodeScalar(NSDownArrowFunctionKey)!): nudge(dy: step, resize: command)
         case String(UnicodeScalar(NSLeftArrowFunctionKey)!): nudge(dx: -step, resize: command)
@@ -165,5 +212,34 @@ extension CanvasView {
 
     func imagePoint(from event: NSEvent) -> ImagePoint {
         transform.toImage(CanvasPoint(cgPoint: convert(event.locationInWindow, from: nil)))
+    }
+}
+
+// MARK: - Key handling detail
+
+extension CanvasView {
+
+    /// Escape unwinds one level at a time: cancel a draw, then deselect an
+    /// object, then clear the marquee. Doing all three at once loses work.
+    func handleEscape() {
+        if let tools, tools.gestureIsActive {
+            tools.cancel()
+            snapEngine = nil
+            refreshAnnotations()
+        } else if store?.selectedAnnotation != nil {
+            store?.select(nil)
+            refreshAnnotations()
+        } else {
+            selection = nil
+            onSelectionChanged?(nil)
+        }
+        needsDisplay = true
+    }
+
+    func handleDelete() {
+        store?.deleteSelectedAnnotation()
+        onAnnotationsChanged?()
+        refreshAnnotations()
+        needsDisplay = true
     }
 }

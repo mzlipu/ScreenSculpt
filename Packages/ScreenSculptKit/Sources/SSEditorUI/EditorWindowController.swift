@@ -2,9 +2,11 @@
 // Copyright (c) 2026 The ScreenSculpt Authors
 
 import AppKit
+import SSAnnotations
 import SSDocument
 import SSGeometry
 import SSImaging
+import SSRender
 
 /// The editor window: one capture, a canvas, and a toolbar.
 ///
@@ -19,12 +21,14 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
 
     private let store: DocumentStore
     private let canvas: CanvasView
+    private let tools: ToolController
     private var zoomLabel: NSToolbarItem?
     private var statusField: NSTextField?
 
     public init(image: RasterImage, measurementUnavailable: Bool = false, onScreen: NSScreen?) {
         store = DocumentStore(image: image, measurementUnavailable: measurementUnavailable)
         canvas = CanvasView(image: image)
+        tools = ToolController(store: store)
 
         let screen = onScreen ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
@@ -46,6 +50,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         super.init(window: window)
 
         window.delegate = self
+        canvas.store = store
+        canvas.tools = tools
         installToolbar()
         wireCanvas()
         refresh()
@@ -74,10 +80,73 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         }
         canvas.onTransformChanged = { [weak self] _ in self?.updateStatus() }
         canvas.onCommitCrop = { [weak self] in self?.cropToSelection() }
+        canvas.onAnnotationsChanged = { [weak self] in
+            self?.window?.toolbar?.validateVisibleItems()
+            self?.updateStatus()
+        }
+    }
+
+    // MARK: - Tools
+
+    @objc public func selectTool(_ sender: NSToolbarItem) {
+        guard let kind = AnnotationKind.allCases.first(where: {
+            $0.rawValue == sender.itemIdentifier.rawValue
+        }) else {
+            tools.tool = .select
+            canvas.window?.toolbar?.validateVisibleItems()
+            return
+        }
+        // Clicking the active tool returns to select, so there is always a way
+        // back without hunting for a separate arrow button.
+        tools.tool = tools.tool == .draw(kind) ? .select : .draw(kind)
+        canvas.window?.toolbar?.validateVisibleItems()
+    }
+
+    @objc public func toolArrow() { chooseTool(.arrow) }
+    @objc public func toolLine() { chooseTool(.line) }
+    @objc public func toolRectangle() { chooseTool(.rectangle) }
+    @objc public func toolOval() { chooseTool(.oval) }
+    @objc public func toolText() { chooseTool(.text) }
+    @objc public func toolFreehand() { chooseTool(.freehand) }
+    @objc public func toolHighlighter() { chooseTool(.highlighter) }
+    @objc public func toolCounter() { chooseTool(.counter) }
+    @objc public func toolConceal() { chooseTool(.conceal) }
+    @objc public func toolSelect() { chooseTool(nil) }
+
+    public func chooseTool(_ kind: AnnotationKind?) {
+        tools.tool = kind.map { EditorTool.draw($0) } ?? .select
+        window?.toolbar?.validateVisibleItems()
+    }
+
+    @objc public func deleteAnnotation() {
+        store.deleteSelectedAnnotation()
+        refresh()
+    }
+
+    @objc public func duplicateAnnotation() {
+        store.duplicateSelectedAnnotation()
+        refresh()
+    }
+
+    /// Merge annotations into the pixels.
+    ///
+    /// Worth doing before sharing: until it happens the hidden pixels under a
+    /// blur are still in the document.
+    @objc public func flattenAnnotations() {
+        guard !store.annotations.isEmpty else { return }
+        store.flatten(using: AnnotationRenderer.flatten(store.document))
+        refresh()
+    }
+
+    /// The image with annotations merged in — what every export path uses.
+    private var exportImage: RasterImage {
+        AnnotationRenderer.flatten(store.document)
     }
 
     private func refresh() {
         canvas.update(image: store.raster, selection: store.document.selection)
+        canvas.refreshAnnotations()
+        window?.toolbar?.validateVisibleItems()
         updateStatus()
     }
 
@@ -93,8 +162,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
 
     // MARK: - Actions
 
-    @objc public func copyImage() { onCopy?(store.raster) }
-    @objc public func saveImage() { onSave?(store.raster) }
+    @objc public func copyImage() { onCopy?(exportImage) }
+    @objc public func saveImage() { onSave?(exportImage) }
 
     @objc public func cropToSelection() {
         store.cropToSelection()
@@ -159,14 +228,30 @@ extension EditorWindowController: NSToolbarDelegate {
         static let zoomOut = NSToolbarItem.Identifier("zoomOut")
         static let zoomFit = NSToolbarItem.Identifier("zoomFit")
         static let zoomIn = NSToolbarItem.Identifier("zoomIn")
+        static let flatten = NSToolbarItem.Identifier("flatten")
     }
 
     public func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [
-            Item.crop, Item.reset, .flexibleSpace,
+        var identifiers: [NSToolbarItem.Identifier] = [Item.crop, Item.reset, .space]
+        identifiers += AnnotationKind.allCases.map {
+            NSToolbarItem.Identifier($0.rawValue)
+        }
+        identifiers += [
+            .flexibleSpace, Item.flatten, .space,
             Item.zoomOut, Item.zoomFit, Item.zoomIn, .flexibleSpace,
             Item.copy, Item.save,
         ]
+        return identifiers
+    }
+
+    /// Grey out what cannot act right now, rather than letting it fail silently.
+    public func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+        switch item.itemIdentifier {
+        case Item.flatten: !store.annotations.isEmpty
+        case Item.reset: store.document.isCropped
+        case Item.crop: store.document.selection != nil
+        default: true
+        }
     }
 
     public func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -178,44 +263,76 @@ extension EditorWindowController: NSToolbarDelegate {
         itemForItemIdentifier identifier: NSToolbarItem.Identifier,
         willBeInsertedIntoToolbar flag: Bool
     ) -> NSToolbarItem? {
-        struct Spec { let label: String; let symbol: String; let action: Selector }
-        let spec: Spec
-        switch identifier {
+        // Annotation tools are identified by their own raw value, so adding a
+        // tool needs no toolbar plumbing at all.
+        if let kind = AnnotationKind.allCases.first(where: { $0.rawValue == identifier.rawValue }) {
+            return makeItem(
+                identifier,
+                label: kind.label,
+                tooltip: "\(kind.label)  (\(kind.shortcut.uppercased()))",
+                symbol: kind.symbol,
+                action: #selector(selectTool(_:))
+            )
+        }
+
+        return switch identifier {
         case Item.copy:
-            spec = Spec(label: "Copy", symbol: "doc.on.doc", action: #selector(copyImage))
+            makeItem(identifier, label: "Copy", symbol: "doc.on.doc", action: #selector(copyImage))
         case Item.save:
-            spec = Spec(
-                label: "Save", symbol: "square.and.arrow.down", action: #selector(saveImage)
+            makeItem(
+                identifier, label: "Save", symbol: "square.and.arrow.down",
+                action: #selector(saveImage)
             )
         case Item.crop:
-            spec = Spec(label: "Crop", symbol: "crop", action: #selector(cropToSelection))
+            makeItem(
+                identifier, label: "Crop", symbol: "crop", action: #selector(cropToSelection)
+            )
         case Item.reset:
-            spec = Spec(
-                label: "Reset Crop", symbol: "arrow.uturn.backward",
+            makeItem(
+                identifier, label: "Reset Crop", symbol: "arrow.uturn.backward",
                 action: #selector(resetCrop)
             )
+        case Item.flatten:
+            makeItem(
+                identifier, label: "Flatten",
+                tooltip: "Merge annotations into the image. Do this before sharing.",
+                symbol: "square.stack.3d.down.forward",
+                action: #selector(flattenAnnotations)
+            )
         case Item.zoomOut:
-            spec = Spec(
-                label: "Zoom Out", symbol: "minus.magnifyingglass", action: #selector(zoomOut)
+            makeItem(
+                identifier, label: "Zoom Out", symbol: "minus.magnifyingglass",
+                action: #selector(zoomOut)
             )
         case Item.zoomFit:
-            spec = Spec(
-                label: "Fit", symbol: "arrow.up.left.and.arrow.down.right",
+            makeItem(
+                identifier, label: "Fit", symbol: "arrow.up.left.and.arrow.down.right",
                 action: #selector(zoomToFit)
             )
         case Item.zoomIn:
-            spec = Spec(
-                label: "Zoom In", symbol: "plus.magnifyingglass", action: #selector(zoomIn)
+            makeItem(
+                identifier, label: "Zoom In", symbol: "plus.magnifyingglass",
+                action: #selector(zoomIn)
             )
-        default: return nil
+        default:
+            nil
         }
+    }
 
+    private func makeItem(
+        _ identifier: NSToolbarItem.Identifier,
+        label: String,
+        tooltip: String? = nil,
+        symbol: String,
+        action: Selector
+    ) -> NSToolbarItem {
         let item = NSToolbarItem(itemIdentifier: identifier)
-        item.label = spec.label
-        item.toolTip = spec.label
-        item.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.label)
+        item.label = label
+        item.toolTip = tooltip ?? label
+        item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
         item.target = self
-        item.action = spec.action
+        item.action = action
+        item.isBordered = true
         return item
     }
 }

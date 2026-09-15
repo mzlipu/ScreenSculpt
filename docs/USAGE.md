@@ -1,9 +1,8 @@
 # Using ScreenSculpt
 
-> **v0.1.0 — early.** Capture, the editor (zoom, pan, crop, undo), global
-> shortcuts and settings all work. Annotation tools, measurement, OCR and
-> scrolling capture do not exist yet; their menu items are visible but greyed
-> out so you can see where they go.
+> **v0.1.0 — early.** Capture, the editor, nine annotation tools, global
+> shortcuts and settings all work. Measurement, OCR and scrolling capture do not
+> exist yet.
 
 ## Installing
 
@@ -95,6 +94,47 @@ Every capture **opens in the editor**. Nothing is written to disk until you ask
 | Copy / Save | `⌘C` / `⌘S` |
 
 The title bar shows the size in both pixels and points, plus the zoom level.
+
+## Annotation tools
+
+Pick one from the toolbar, or press its letter. Press the same letter again — or
+`V`, or Escape — to go back to selecting.
+
+| Tool | Key | Notes |
+|---|---|---|
+| Arrow | `A` | Drag the middle handle to bend it into an arc |
+| Line | `L` | |
+| Rectangle | `R` | Shift-drag for a square |
+| Oval | `O` | Shift-drag for a circle |
+| Text | `T` | Click to place a label |
+| Freehand | `D` | Smoothed as you draw |
+| Highlighter | `H` | Multiplies, so overlapping passes darken |
+| Blur | `B` | Pixelate, blur or solid block |
+| Counter | `N` | Click to drop a numbered badge; numbering continues automatically |
+
+Once placed, everything stays editable:
+
+| Action | How |
+|---|---|
+| Select | Click it. The topmost object wins |
+| Move | Drag. Alignment guides appear when edges line up |
+| Reshape | Drag a handle |
+| Duplicate | Option-drag, or `⌘D` |
+| Delete | Select and press Delete |
+| Suspend snapping | Hold `⌘` while dragging |
+| Cancel a drawing | Escape |
+
+**Annotations are objects, not paint.** They stay editable indefinitely, and the
+pixels underneath survive — including under a blur.
+
+> **Flatten before sharing.** Until you do (`⌘E`, or the Flatten button), an
+> unflattened document still contains whatever a blur is covering. Saving and
+> copying always flatten automatically, so a file you export is safe; the warning
+> is about the live document.
+
+Blur offers three modes. **Pixelate** and **solid** discard the original pixels
+outright. Plain **blur** at a small radius is in principle partially reversible,
+so pixelate is the default for anything you actually need hidden.
 
 **Zoom past 100% and the image switches to nearest-neighbour**, so you see real
 pixels rather than a smoothed approximation of them. Past 16× a **pixel grid**

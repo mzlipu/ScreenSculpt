@@ -2,6 +2,7 @@
 // Copyright (c) 2026 The ScreenSculpt Authors
 
 import Foundation
+import SSAnnotations
 import SSGeometry
 import SSImaging
 
@@ -47,6 +48,13 @@ public struct ShotDocument: Sendable {
 
     /// Applied in order over `origin` to produce the current raster.
     public var rasterOps: [RasterOp] = []
+
+    /// Markup layered over the raster. Non-destructive: the pixels underneath
+    /// survive until the document is flattened.
+    public var annotations = OrderedAnnotations()
+
+    /// Currently selected annotation, if any. Transient UI state, outside undo.
+    public var selectedAnnotation: AnnotationID?
 
     /// Current marquee, in image pixels. Not part of undo history.
     public var selection: ImageRect?
@@ -97,9 +105,11 @@ public struct ShotDocument: Sendable {
 /// One undoable step.
 public struct DocumentSnapshot: Sendable, Equatable {
     public let rasterOps: [RasterOp]
+    public let annotations: OrderedAnnotations
 
     public init(_ document: ShotDocument) {
         rasterOps = document.rasterOps
+        annotations = document.annotations
     }
 }
 

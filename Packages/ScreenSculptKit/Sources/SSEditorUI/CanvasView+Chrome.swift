@@ -23,6 +23,9 @@ extension CanvasView {
 
         if transform.pixelGridAlpha > 0 { drawPixelGrid(in: context) }
 
+        drawSnapGuides(in: context)
+        drawAnnotationSelection(in: context)
+
         guard let selection else { return }
         let rect = transform.toCanvas(selection).cgRect
 
@@ -107,5 +110,66 @@ extension CanvasView {
         context.setFillColor(NSColor.black.withAlphaComponent(0.75).cgColor)
         context.fill(box)
         string.draw(at: CGPoint(x: box.minX + 4, y: box.minY + 2))
+    }
+}
+
+// MARK: - Annotation chrome
+
+extension CanvasView {
+
+    /// Outline and handles for the selected annotation.
+    ///
+    /// Drawn in view points at a fixed size — a handle must stay grabbable at
+    /// 25% and must not swell to cover the object at 3200%.
+    func drawAnnotationSelection(in context: CGContext) {
+        guard let selected = store?.selectedAnnotation else { return }
+
+        let box = transform.toCanvas(selected.bounds).cgRect.insetBy(dx: -3, dy: -3)
+        context.setStrokeColor(NSColor.controlAccentColor.withAlphaComponent(0.9).cgColor)
+        context.setLineWidth(1)
+        context.setLineDash(phase: 0, lengths: [4, 3])
+        context.stroke(box)
+        context.setLineDash(phase: 0, lengths: [])
+
+        for handle in selected.handles() {
+            let point = transform.toCanvas(handle.position).cgPoint
+            let side: CGFloat = Self.handleSide
+            let rect = CGRect(
+                x: point.x - side / 2, y: point.y - side / 2, width: side, height: side
+            )
+            // A bend handle is round so it reads differently from the endpoints
+            // it sits between.
+            context.setFillColor(NSColor.white.cgColor)
+            context.setStrokeColor(NSColor.controlAccentColor.cgColor)
+            context.setLineWidth(1.5)
+            if case .bend = handle.role {
+                context.fillEllipse(in: rect)
+                context.strokeEllipse(in: rect)
+            } else {
+                context.fill(rect)
+                context.stroke(rect)
+            }
+        }
+    }
+
+    /// Alignment guides, shown only while they are actually snapping.
+    func drawSnapGuides(in context: CGContext) {
+        guard let engine = snapEngine else { return }
+        context.setStrokeColor(NSColor.systemPink.withAlphaComponent(0.85).cgColor)
+        context.setLineWidth(1)
+        context.setLineDash(phase: 0, lengths: [5, 4])
+        context.beginPath()
+        if let x = engine.activeVertical {
+            let canvasX = transform.toCanvas(ImagePoint(x: x, y: .zero)).x.cgFloat
+            context.move(to: CGPoint(x: canvasX, y: bounds.minY))
+            context.addLine(to: CGPoint(x: canvasX, y: bounds.maxY))
+        }
+        if let y = engine.activeHorizontal {
+            let canvasY = transform.toCanvas(ImagePoint(x: .zero, y: y)).y.cgFloat
+            context.move(to: CGPoint(x: bounds.minX, y: canvasY))
+            context.addLine(to: CGPoint(x: bounds.maxX, y: canvasY))
+        }
+        context.strokePath()
+        context.setLineDash(phase: 0, lengths: [])
     }
 }

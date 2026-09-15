@@ -3,6 +3,7 @@
 
 import Foundation
 import Observation
+import SSAnnotations
 import SSGeometry
 import SSImaging
 
@@ -24,7 +25,7 @@ public final class DocumentStore {
 
     /// Bumped whenever the rendered raster changes, so views can invalidate
     /// without diffing images.
-    public private(set) var revision: Int = 0
+    public internal(set) var revision: Int = 0
 
     public init(document: ShotDocument) {
         self.document = document
@@ -108,18 +109,121 @@ public final class DocumentStore {
 
     public func undo() {
         guard let snapshot = undoStack.undo() else { return }
-        document.rasterOps = snapshot.rasterOps
-        document.selection = nil
-        revision += 1
+        restore(snapshot)
     }
 
     public func redo() {
         guard let snapshot = undoStack.redo() else { return }
+        restore(snapshot)
+    }
+
+    private func restore(_ snapshot: DocumentSnapshot) {
         document.rasterOps = snapshot.rasterOps
+        document.annotations = snapshot.annotations
+        // Both selections are transient UI state; restoring a marquee or a
+        // highlighted object the user has moved on from is disorienting.
         document.selection = nil
+        document.selectedAnnotation = nil
         revision += 1
     }
 
     public var canUndo: Bool { undoStack.canUndo }
     public var canRedo: Bool { undoStack.canRedo }
+}
+
+// MARK: - Annotations
+
+extension DocumentStore {
+
+    public var annotations: OrderedAnnotations { document.annotations }
+    public var selectedAnnotation: Annotation? {
+        document.selectedAnnotation.flatMap { document.annotations[$0] }
+    }
+
+    public func add(_ body: AnyAnnotationBody, style: AnnotationStyle) {
+        let annotation = Annotation(z: ZIndex(0), style: style, body: body)
+        apply(name: "Add \(body.kind.label)") { document in
+            document.annotations.append(annotation)
+            document.selectedAnnotation = annotation.id
+        }
+    }
+
+    /// Commit a change to one annotation as a single undo entry.
+    ///
+    /// Live dragging calls ``previewUpdate(_:)`` instead and then commits once
+    /// on mouse-up, so a drag is one undo step rather than two hundred.
+    public func update(_ annotation: Annotation, name: String) {
+        apply(name: name) { $0.annotations.update(annotation) }
+    }
+
+    /// Mutate without touching undo, for the duration of a drag.
+    public func previewUpdate(_ annotation: Annotation) {
+        document.annotations.update(annotation)
+        revision += 1
+    }
+
+    /// Record one undo entry for a drag that has already been previewed.
+    public func commitDrag(name: String, from before: DocumentSnapshot) {
+        let after = DocumentSnapshot(document)
+        guard before != after else { return }
+        undoStack.push(name: name, before: before, after: after)
+        revision += 1
+    }
+
+    public func snapshot() -> DocumentSnapshot { DocumentSnapshot(document) }
+
+    public func select(_ id: AnnotationID?) {
+        document.selectedAnnotation = id
+        // Selecting raises to front, which is what people expect when they
+        // click a partly hidden object and then drag it.
+        if let id { document.annotations.bringToFront(id) }
+        revision += 1
+    }
+
+    public func deleteSelectedAnnotation() {
+        guard let id = document.selectedAnnotation else { return }
+        apply(name: "Delete") { document in
+            document.annotations.remove(id)
+            document.selectedAnnotation = nil
+        }
+    }
+
+    public func duplicateSelectedAnnotation() {
+        guard let original = selectedAnnotation else { return }
+        let offset = ImageVector(dx: 16, dy: 16)
+        let copy = Annotation(
+            z: ZIndex(0), style: original.style, body: original.body.translated(by: offset)
+        )
+        apply(name: "Duplicate") { document in
+            document.annotations.append(copy)
+            document.selectedAnnotation = copy.id
+        }
+    }
+
+    public func restyleSelected(_ transform: (inout AnnotationStyle) -> Void) {
+        guard var annotation = selectedAnnotation else { return }
+        transform(&annotation.style)
+        update(annotation, name: "Change style")
+    }
+
+    public func deleteAllAnnotations() {
+        guard !document.annotations.isEmpty else { return }
+        apply(name: "Delete All") { document in
+            document.annotations = OrderedAnnotations()
+            document.selectedAnnotation = nil
+        }
+    }
+
+    /// Merge annotations into the raster.
+    ///
+    /// Undoable, unlike most implementations of this command, because it is
+    /// just one more `RasterOp` on the list.
+    public func flatten(using flattened: RasterImage) {
+        guard !document.annotations.isEmpty else { return }
+        apply(name: "Flatten") { document in
+            document.rasterOps.append(.flatten(flattened))
+            document.annotations = OrderedAnnotations()
+            document.selectedAnnotation = nil
+        }
+    }
 }
