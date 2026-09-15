@@ -241,6 +241,9 @@ final class AppEnvironment {
             guard let receipt = self?.saveImage(image) else { return }
             self?.announce("Saved", body: receipt.url.lastPathComponent, revealing: receipt.url)
         }
+        controller.onStatusMessage = { [weak self] message in
+            self?.announce(message, body: message)
+        }
         controller.onClose = { [weak self] in self?.editors[key] = nil }
 
         controller.showWindow(nil)

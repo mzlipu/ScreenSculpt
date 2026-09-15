@@ -127,10 +127,34 @@ Once placed, everything stays editable:
 **Annotations are objects, not paint.** They stay editable indefinitely, and the
 pixels underneath survive — including under a blur.
 
-> **Flatten before sharing.** Until you do (`⌘E`, or the Flatten button), an
-> unflattened document still contains whatever a blur is covering. Saving and
-> copying always flatten automatically, so a file you export is safe; the warning
-> is about the live document.
+### Blur and Merge are not the same thing
+
+They are easy to confuse because **after merging, the picture looks identical**.
+
+**Blur** (`B`) is a *tool*. It adds an object that hides a region. The pixels
+underneath are untouched — which is why you can still move the blur, resize it,
+change its mode, or delete it. It also means the hidden pixels are **still in the
+document**.
+
+**Merge** (`⌘E`) is a *one-shot action*. It bakes every annotation permanently
+into the pixels and removes the objects. Afterwards nothing is editable and the
+hidden pixels are genuinely gone.
+
+| | Blur | Merge |
+|---|---|---|
+| What it is | A tool you draw with | An action you invoke once |
+| Affects | One region | Every annotation at once |
+| Pixels underneath | Preserved | Destroyed |
+| Still editable after | Yes | No |
+| Visible change | Yes | **None** |
+
+The title bar shows the object count, so you can watch it drop to nothing when
+you merge — that is the only on-screen evidence the action did anything.
+
+**You rarely need to merge by hand.** Saving and copying flatten automatically,
+so an exported file never leaks what a blur is covering. Merging manually is for
+when you want to be certain the live document is clean, or to stop yourself
+nudging a blur out of place later.
 
 Blur offers three modes. **Pixelate** and **solid** discard the original pixels
 outright. Plain **blur** at a small radius is in principle partially reversible,

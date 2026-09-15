@@ -280,3 +280,80 @@ struct BoundsTests {
         #expect(body.bounds.height.value > 3)
     }
 }
+
+// MARK: - Blur versus Flatten
+
+/// These two are routinely confused because after clicking Flatten the picture
+/// looks *identical*. That is correct — flatten changes the document's
+/// structure, not its appearance — but it makes the button feel broken.
+@Suite("Blur versus flatten")
+@MainActor
+struct BlurVersusFlattenTests {
+
+    @Test("Blur adds an object; the raster is untouched")
+    func blurIsNonDestructive() {
+        let base = makeStripedBase()
+        let store = DocumentStore(image: base)
+        store.add(
+            .conceal(ConcealBody(rect: ImageRect(x: 40, y: 40, width: 100, height: 100))),
+            style: style
+        )
+
+        #expect(store.annotations.count == 1)
+        // The pixels underneath are still there, which is why a blur can be
+        // moved afterwards — and why an unflattened document still contains
+        // whatever it is hiding.
+        #expect(changedBytes(base, store.raster) == 0)
+    }
+
+    @Test("Flatten bakes objects into the raster and removes them")
+    func flattenIsDestructive() {
+        let base = makeStripedBase()
+        let store = DocumentStore(image: base)
+        store.add(
+            .conceal(ConcealBody(rect: ImageRect(x: 40, y: 40, width: 100, height: 100))),
+            style: style
+        )
+
+        store.flatten(using: AnnotationRenderer.flatten(store.document))
+
+        #expect(store.annotations.isEmpty, "objects are consumed")
+        #expect(changedBytes(base, store.raster) > 200, "pixels are now changed")
+    }
+
+    @Test("Flatten changes nothing on screen — which is why it looks like a no-op")
+    func flattenIsVisuallyIdentical() {
+        let store = DocumentStore(image: makeStripedBase())
+        store.add(
+            .conceal(ConcealBody(rect: ImageRect(x: 40, y: 40, width: 100, height: 100))),
+            style: style
+        )
+
+        let before = AnnotationRenderer.flatten(store.document)
+        store.flatten(using: before)
+        let after = AnnotationRenderer.flatten(store.document)
+
+        #expect(changedBytes(before, after) == 0)
+    }
+
+    @Test("Flatten is undoable, unlike most implementations of it")
+    func flattenUndoes() {
+        let store = DocumentStore(image: makeStripedBase())
+        store.add(
+            .conceal(ConcealBody(rect: ImageRect(x: 40, y: 40, width: 100, height: 100))),
+            style: style
+        )
+        store.flatten(using: AnnotationRenderer.flatten(store.document))
+        #expect(store.annotations.isEmpty)
+
+        store.undo()
+        #expect(store.annotations.count == 1, "the object should come back")
+    }
+
+    @Test("Flatten on a document with no objects does nothing at all")
+    func flattenNoOp() {
+        let store = DocumentStore(image: makeStripedBase())
+        store.flatten(using: makeBase())
+        #expect(!store.canUndo, "an empty flatten should not create an undo step")
+    }
+}
