@@ -4,6 +4,7 @@
 import AppKit
 import SSAnnotations
 import SSDocument
+import SSMeasure
 import SSGeometry
 import SSImaging
 
@@ -104,6 +105,18 @@ extension CanvasView {
         needsDisplay = true
     }
 
+    /// Live colour readout needs the pointer position, which the canvas did not
+    /// previously track at all.
+    override func mouseMoved(with event: NSEvent) {
+        measurement?.updateHover(at: imagePoint(from: event))
+        onMeasurementChanged?()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        measurement?.clearHover()
+        onMeasurementChanged?()
+    }
+
     override func mouseUp(with event: NSEvent) {
         if isPanning { endPan(); return }
 
@@ -187,13 +200,11 @@ extension CanvasView {
         case "\r": onCommitCrop?()
         case "\u{1b}": handleEscape()
         case String(UnicodeScalar(NSDeleteCharacter)!), "\u{7f}": handleDelete()
-        case String(UnicodeScalar(NSUpArrowFunctionKey)!): nudge(dy: -step, resize: command)
-        case String(UnicodeScalar(NSDownArrowFunctionKey)!): nudge(dy: step, resize: command)
-        case String(UnicodeScalar(NSLeftArrowFunctionKey)!): nudge(dx: -step, resize: command)
-        case String(UnicodeScalar(NSRightArrowFunctionKey)!): nudge(dx: step, resize: command)
         case "[": growSelection(by: -(shift ? 10 : 1))
         case "]": growSelection(by: shift ? 10 : 1)
-        default: super.keyDown(with: event)
+        default:
+            if handleArrowKey(characters, step: step, resize: command) { return }
+            if !handleMeasurementKey(characters, event: event) { super.keyDown(with: event) }
         }
     }
 
@@ -261,5 +272,87 @@ extension CanvasView {
         onAnnotationsChanged?()
         refreshAnnotations()
         needsDisplay = true
+    }
+}
+
+// MARK: - Measurement keys
+
+extension CanvasView {
+
+    /// With a marquee, arrows nudge it. Without one, they measure — that is the
+    /// ruler, and it is why the two behaviours share a key.
+    func handleArrowKey(_ characters: String, step: ImagePx, resize: Bool) -> Bool {
+        switch characters {
+        case String(UnicodeScalar(NSUpArrowFunctionKey)!):
+            if !measureIfNoSelection(.vertical) { nudge(dy: -step, resize: resize) }
+        case String(UnicodeScalar(NSDownArrowFunctionKey)!):
+            if !measureIfNoSelection(.vertical) { nudge(dy: step, resize: resize) }
+        case String(UnicodeScalar(NSLeftArrowFunctionKey)!):
+            if !measureIfNoSelection(.horizontal) { nudge(dx: -step, resize: resize) }
+        case String(UnicodeScalar(NSRightArrowFunctionKey)!):
+            if !measureIfNoSelection(.horizontal) { nudge(dx: step, resize: resize) }
+        default:
+            return false
+        }
+        return true
+    }
+
+    /// Colour and ruler shortcuts.
+    ///
+    /// Deliberately bare letters with no modifier: these are used constantly
+    /// while the pointer is parked over a pixel, and a chord would mean taking a
+    /// hand off the mouse every time.
+    func handleMeasurementKey(_ characters: String, event: NSEvent) -> Bool {
+        guard let measurement else { return false }
+
+        switch characters {
+        case "\t":
+            // Tab copies the pixel; Shift-Tab copies the text colour beneath it.
+            let copied = event.modifierFlags.contains(.shift)
+                ? measurement.pickTextColor()
+                : measurement.pickPixelColor()
+            if let copied { onStatusMessage?("Copied \(copied)") }
+            return true
+
+        case "c":
+            if let copied = measurement.pickAverageColor() {
+                onStatusMessage?("Copied average \(copied)")
+            } else {
+                onStatusMessage?("Select an area first")
+            }
+            return true
+
+        case "p":
+            // Display toggle only — the stored measurement never changes.
+            measurement.showLogicalPoints.toggle()
+            onMeasurementChanged?()
+            needsDisplay = true
+            return true
+
+        case "x":
+            if let summary = measurement.captureForComparison() {
+                onStatusMessage?(summary)
+            }
+            return true
+
+        case "a":
+            measurement.autoFitSelection()
+            selection = store?.document.selection
+            onSelectionChanged?(selection)
+            needsDisplay = true
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    /// Arrow keys with no selection measure instead of nudging.
+    func measureIfNoSelection(_ axis: Axis) -> Bool {
+        guard selection == nil, let measurement else { return false }
+        measurement.measure(axis: axis)
+        onMeasurementChanged?()
+        needsDisplay = true
+        return true
     }
 }

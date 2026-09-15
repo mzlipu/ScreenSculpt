@@ -25,6 +25,7 @@ enum MainMenuBuilder {
         main.addItem(fileMenuItem())
         main.addItem(editMenuItem())
         main.addItem(drawMenuItem())
+        main.addItem(measureMenuItem())
         main.addItem(zoomMenuItem())
         main.addItem(windowMenuItem())
         main.addItem(helpMenuItem())
@@ -179,6 +180,10 @@ enum MainMenuBuilder {
         return wrap(menu, title: "Draw")
     }
 
+    /// Colour and ruler commands.
+    ///
+    /// Bare letters with no modifier, because these are used with the pointer
+    /// parked over a pixel and a chord means moving a hand off the mouse.
     private static func zoomMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "Zoom")
         menu.addItem(responder("Zoom In", #selector(EditorWindowController.zoomIn), "+"))
@@ -193,10 +198,6 @@ enum MainMenuBuilder {
         menu.addItem(.separator())
         menu.addItem(stub("Selection Top Left", key: "q", modifiers: []))
         menu.addItem(stub("Selection Bottom Right", key: "w", modifiers: []))
-        menu.addItem(.separator())
-        // The `P` toggle is a formatter change only; the stored measurement
-        // never changes.
-        menu.addItem(stub("Show Sizes in Physical Pixels", key: "p", modifiers: []))
         return wrap(menu, title: "Zoom")
     }
 
@@ -234,7 +235,7 @@ enum MainMenuBuilder {
 
     // MARK: - Helpers
 
-    private static func wrap(_ menu: NSMenu, title: String) -> NSMenuItem {
+    static func wrap(_ menu: NSMenu, title: String) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.submenu = menu
         menu.title = title
@@ -243,7 +244,7 @@ enum MainMenuBuilder {
 
     /// A menu item dispatched through the responder chain, so it targets
     /// whichever editor window is frontmost and is greyed out when none is.
-    private static func responder(
+    static func responder(
         _ title: String, _ action: Selector, _ key: String,
         _ modifiers: NSEvent.ModifierFlags = [.command]
     ) -> NSMenuItem {

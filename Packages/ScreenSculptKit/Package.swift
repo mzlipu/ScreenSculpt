@@ -201,7 +201,7 @@ let package = Package(
         ),
         .testTarget(
             name: "SSMeasureTests",
-            dependencies: ["SSMeasure"],
+            dependencies: ["SSMeasure", "SSImaging"],
             swiftSettings: computeSettings
         ),
         .testTarget(

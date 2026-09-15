@@ -25,6 +25,8 @@ final class CanvasView: NSView {
     var onTransformChanged: ((CanvasTransform) -> Void)?
     var onCommitCrop: (() -> Void)?
     var onAnnotationsChanged: (() -> Void)?
+    var onMeasurementChanged: (() -> Void)?
+    var onStatusMessage: ((String) -> Void)?
 
     private(set) var transform: CanvasTransform
     var image: RasterImage
@@ -38,6 +40,7 @@ final class CanvasView: NSView {
     /// Set by the window controller once the store exists.
     var tools: ToolController?
     var store: DocumentStore?
+    var measurement: MeasurementController?
     var snapEngine: SnapEngine?
 
     var anchor: ImagePoint?
@@ -131,6 +134,16 @@ final class CanvasView: NSView {
         dragScrim.frame = bounds
         layoutBase()
         needsDisplay = true
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self
+        ))
     }
 
     /// Push document state into the annotation layers.

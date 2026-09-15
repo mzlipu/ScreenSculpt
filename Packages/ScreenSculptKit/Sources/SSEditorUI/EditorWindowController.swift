@@ -6,6 +6,7 @@ import SSAnnotations
 import SSDocument
 import SSGeometry
 import SSImaging
+import SSMeasure
 import SSRender
 
 /// The editor window: one capture, a canvas, and a toolbar.
@@ -24,6 +25,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     private let store: DocumentStore
     private let canvas: CanvasView
     private let tools: ToolController
+    private let measurement: MeasurementController
     private var zoomLabel: NSToolbarItem?
     private var statusField: NSTextField?
 
@@ -31,6 +33,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         store = DocumentStore(image: image, measurementUnavailable: measurementUnavailable)
         canvas = CanvasView(image: image)
         tools = ToolController(store: store)
+        measurement = MeasurementController(store: store)
 
         let screen = onScreen ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
@@ -54,6 +57,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         window.delegate = self
         canvas.store = store
         canvas.tools = tools
+        canvas.measurement = measurement
         installToolbar()
         wireCanvas()
         refresh()
@@ -86,6 +90,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             self?.window?.toolbar?.validateVisibleItems()
             self?.updateStatus()
         }
+        canvas.onMeasurementChanged = { [weak self] in self?.updateStatus() }
+        canvas.onStatusMessage = { [weak self] message in
+            self?.onStatusMessage?(message)
+        }
     }
 
     // MARK: - Tools
@@ -115,6 +123,44 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     @objc public func toolCounter() { chooseTool(.counter) }
     @objc public func toolConceal() { chooseTool(.conceal) }
     @objc public func toolSelect() { chooseTool(nil) }
+
+    // MARK: - Measurement
+
+    @objc public func copyPixelColor() {
+        if let copied = measurement.pickPixelColor() { onStatusMessage?("Copied \(copied)") }
+    }
+
+    @objc public func copyTextColor() {
+        if let copied = measurement.pickTextColor() { onStatusMessage?("Copied \(copied)") }
+    }
+
+    @objc public func copyAverageColor() {
+        if let copied = measurement.pickAverageColor() {
+            onStatusMessage?("Copied average \(copied)")
+        } else {
+            onStatusMessage?("Select an area first")
+        }
+    }
+
+    @objc public func toggleLogicalPoints() {
+        measurement.showLogicalPoints.toggle()
+        updateStatus()
+    }
+
+    @objc public func autoFitSelection() {
+        measurement.autoFitSelection()
+        refresh()
+    }
+
+    @objc public func compareContrast() {
+        if let summary = measurement.captureForComparison() { onStatusMessage?(summary) }
+        updateStatus()
+    }
+
+    @objc public func clearContrast() {
+        measurement.clearComparison()
+        updateStatus()
+    }
 
     public func chooseTool(_ kind: AnnotationKind?) {
         tools.tool = kind.map { EditorTool.draw($0) } ?? .select
@@ -237,6 +283,18 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
             // half the image.
             parts.append("mixed-scale capture — measurements unavailable")
         }
+
+        // Live readings take over the subtitle: while the pointer is on the
+        // image, what is under it matters more than the file's dimensions.
+        if let reading = measurement.readingSummary {
+            parts = [reading] + parts
+        } else if let hover = measurement.hoverSummary, measurement.isAvailable {
+            parts = [hover] + parts
+        }
+        if let contrast = measurement.contrastSummary {
+            parts.append(contrast)
+        }
+
         window?.subtitle = parts.joined(separator: "  ·  ")
     }
 }
