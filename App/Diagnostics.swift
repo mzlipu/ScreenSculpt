@@ -6,6 +6,7 @@ import CoreGraphics
 import Foundation
 import ScreenCaptureKit
 import SSCapture
+import SSCaptureUI
 import SSGeometry
 import SSPlatform
 
@@ -105,6 +106,15 @@ enum Diagnostics {
 
     private static func trailingSection() -> [String] {
         var out: [String] = []
+
+        // Constructing the overlay is a real smoke test, not a formality: a
+        // subclass that declares its own designated initialiser without
+        // overriding NSWindow's leaves a trapping stub behind, and AppKit calls
+        // straight into it. That shipped once and killed the app on every area
+        // capture, so it gets checked here.
+        out.append("Overlay window: \(SelectionOverlayProbe.canConstruct() ? "OK" : "FAILED")")
+        out.append("")
+
         out.append("Accessibility (only needed for scrolling capture):")
         out.append("  AXIsProcessTrusted(): \(AXIsProcessTrusted())")
         out.append("")

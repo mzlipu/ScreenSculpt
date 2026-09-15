@@ -15,21 +15,42 @@ final class SelectionOverlayWindow: NSWindow {
     var onCancel: (() -> Void)?
     var onCursorMoved: (() -> Void)?
 
-    private let overlayView: SelectionOverlayView
+    private var overlayView: SelectionOverlayView!
 
-    init(screen: NSScreen, snapshot: DisplaySnapshot, frozenImage: RasterImage) {
-        overlayView = SelectionOverlayView(
-            frozenImage: frozenImage,
-            pointSize: screen.frame.size
-        )
-
+    /// NSWindow's *designated* initialiser.
+    ///
+    /// This override is not decoration. `NSWindow.init(contentRect:styleMask:
+    /// backing:defer:screen:)` is a convenience initialiser that calls straight
+    /// back into this one on the subclass. Declaring our own designated
+    /// initialiser without overriding this left Swift's trapping stub in place
+    /// for it, so AppKit's call landed on `fatalError` and the app died with
+    /// EXC_BREAKPOINT the moment an overlay was created.
+    override init(
+        contentRect: NSRect,
+        styleMask style: NSWindow.StyleMask,
+        backing backingStoreType: NSWindow.BackingStoreType,
+        defer flag: Bool
+    ) {
         super.init(
+            contentRect: contentRect, styleMask: style,
+            backing: backingStoreType, defer: flag
+        )
+    }
+
+    /// Build a shield sized to one display and showing its frozen frame.
+    convenience init(screen: NSScreen, snapshot: DisplaySnapshot, frozenImage: RasterImage) {
+        self.init(
             contentRect: screen.frame,
             styleMask: .borderless,
             backing: .buffered,
-            defer: false,
-            screen: screen
+            defer: false
         )
+
+        let view = SelectionOverlayView(
+            frozenImage: frozenImage,
+            pointSize: screen.frame.size
+        )
+        overlayView = view
 
         isOpaque = true
         backgroundColor = .black
@@ -42,11 +63,16 @@ final class SelectionOverlayWindow: NSWindow {
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         isReleasedWhenClosed = false
-        contentView = overlayView
+        contentView = view
 
-        overlayView.onCommit = { [weak self] rect in self?.onCommit?(rect) }
-        overlayView.onCancel = { [weak self] in self?.onCancel?() }
-        overlayView.onCursorMoved = { [weak self] in self?.onCursorMoved?() }
+        // The convenience initialiser cannot pass `screen:`, so place the
+        // window explicitly. setFrame also keeps this correct if the display
+        // arrangement changed between the capture and now.
+        setFrame(screen.frame, display: false)
+
+        view.onCommit = { [weak self] rect in self?.onCommit?(rect) }
+        view.onCancel = { [weak self] in self?.onCancel?() }
+        view.onCursorMoved = { [weak self] in self?.onCursorMoved?() }
     }
 
     /// Borderless windows refuse key status by default, and without it the view
