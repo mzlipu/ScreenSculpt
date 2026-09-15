@@ -57,10 +57,14 @@ installing:
    damaged and can't be opened." It isn't damaged; macOS says that for anything
    unsigned that arrives with a quarantine flag. The fix is System Settings →
    Privacy & Security → **Open Anyway**.
-2. **Screen Recording permission resets on every update.** macOS ties that grant
-   to the app's exact signature, which changes with every build when there is no
-   stable certificate. ScreenSculpt detects this on launch and walks you through
-   re-granting, but it cannot avoid it.
+2. **After enabling Screen Recording you must reopen the app.** macOS applies
+   that grant only when a process starts, so approving it while ScreenSculpt is
+   running changes nothing until you restart. ScreenSculpt detects this exact
+   case and offers a Relaunch button.
+
+   The grant itself now *persists* across updates: builds are signed with a
+   self-signed certificate, giving a stable designated requirement rather than
+   the per-build `cdhash` that ad-hoc signing produces.
 
 The `curl` install avoids the first problem entirely, because quarantine is
 attached by the *downloading application* and `curl` doesn't attach it:

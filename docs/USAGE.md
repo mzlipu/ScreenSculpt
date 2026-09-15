@@ -111,10 +111,17 @@ copies it finds. The fix:
 3. Click **+**, add it back from /Applications
 4. Quit and reopen ScreenSculpt
 
-**The permission disappears after every update.** Expected, unfortunately, and
-the price of unsigned distribution: macOS keys the grant to the app's exact
-signature, which changes on every build. ScreenSculpt detects it and tells you.
-A paid Apple certificate is the only real fix.
+**The permission disappears after every update.** This used to happen and is now
+fixed. Ad-hoc signing gave a designated requirement of `cdhash H"..."`, which
+changes with every build, so macOS quietly stopped honouring the grant while
+still showing a ticked box. Builds are now signed with a self-signed certificate,
+which gives a stable `identifier + certificate` requirement instead. Run
+`make cert` once; `make dmg` picks it up automatically.
+
+**It asks for permission even though Settings shows it enabled.** macOS applies a
+screen-recording grant only when an app *starts*. If you approved it while
+ScreenSculpt was already running, the running process still cannot capture. Quit
+and reopen — ScreenSculpt detects this case and offers a **Relaunch** button.
 
 **Nothing happens when I press the shortcut.** Either ScreenSculpt isn't
 frontmost (see above), or another app owns that combination. Use the menu.
