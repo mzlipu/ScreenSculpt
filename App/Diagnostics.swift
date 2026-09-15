@@ -20,13 +20,40 @@ import SSPlatform
 @MainActor
 enum Diagnostics {
 
+    /// Synchronous snapshot for the settings window.
+    ///
+    /// Skips the async capture probe, using the broker's last known state
+    /// instead, so opening a settings pane never blocks on ScreenCaptureKit.
+    static func report(broker: PermissionBroker) -> String {
+        var out = ["ScreenSculpt diagnostics", String(repeating: "=", count: 40), ""]
+        out += identitySection()
+        out.append("Screen recording: \(broker.screenRecording)")
+        out.append("Accessibility:    \(broker.accessibility)")
+        out.append("")
+        out += trailingSection()
+        return out.joined(separator: "\n")
+    }
+
     static func runAndExit() async -> Never {
         var out = ["ScreenSculpt diagnostics", String(repeating: "=", count: 40), ""]
         out += identitySection()
         out += await screenRecordingSection()
         out += trailingSection()
-        print(out.joined(separator: "\n"))
+        // Also written to disk, because a diagnostic run from a shell is
+        // attributed to the *terminal* by TCC, not to ScreenSculpt — so the
+        // permission probes lie unless the app is launched normally. Running
+        // `open -n -a ScreenSculpt --args --diagnose` and reading this file is
+        // the only way to see what the real app sees.
+        let text = out.joined(separator: "\n")
+        print(text)
+        try? text.write(to: Self.reportURL, atomically: true, encoding: .utf8)
         exit(0)
+    }
+
+    /// Where `--diagnose` leaves its report.
+    static var reportURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/ScreenSculpt-diagnostics.txt")
     }
 
     private static func identitySection() -> [String] {
@@ -36,6 +63,21 @@ enum Diagnostics {
         out.append("Bundle:      \(Bundle.main.bundleIdentifier ?? "?")")
         out.append("Version:     \(AppEnvironment.versionString)")
         out.append("Path:        \(Bundle.main.bundleURL.path)")
+        // TCC attributes a permission request to the "responsible process",
+        // which for a binary started from a shell is the *terminal*, not this
+        // app. The probes below then report a permission fault that does not
+        // exist. An attached tty is the reliable tell — an environment variable
+        // is not, since `open` inherits the caller's environment.
+        if isatty(STDOUT_FILENO) != 0 {
+            out.append("Launched by: a terminal")
+            out.append("  ⚠️  Screen-recording probes are attributed to the terminal, not")
+            out.append("      to ScreenSculpt, so they will under-report. For a true")
+            out.append("      reading run:")
+            out.append("        open -n -a ScreenSculpt --args --diagnose")
+            out.append("      then read \(reportURL.path)")
+        } else {
+            out.append("Launched by: launchd or Finder (probes are accurate)")
+        }
         out.append("Translocated: \(Bundle.main.bundleURL.path.contains("/AppTranslocation/"))")
         out.append("")
 

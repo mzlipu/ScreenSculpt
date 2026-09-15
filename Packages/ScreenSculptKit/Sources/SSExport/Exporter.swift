@@ -85,7 +85,8 @@ public enum Exporter {
         _ image: RasterImage,
         to folder: URL? = nil,
         format: SaveFormat = .auto,
-        downscaleToOneX: Bool = false
+        downscaleToOneX: Bool = false,
+        template: String = "SCR-%Y%m%d-%H%M%S"
     ) throws -> ExportReceipt {
         let destination = folder ?? defaultFolder
         try FileManager.default.createDirectory(
@@ -95,7 +96,10 @@ public enum Exporter {
         let subject = downscaleToOneX ? (image.downscaledTo1x() ?? image) : image
         let resolved = format.resolved(for: subject)
         let data = try ImageCodec.encode(subject, as: resolved)
-        let url = uniqueURL(in: destination, filename: filename(for: resolved))
+        let url = uniqueURL(
+            in: destination,
+            filename: filename(for: resolved, template: template)
+        )
 
         do {
             try data.write(to: url, options: .atomic)

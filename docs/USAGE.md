@@ -1,8 +1,9 @@
 # Using ScreenSculpt
 
-> **v0.1.0 — early.** Capture and the editor (zoom, pan, crop, undo) work.
-> Annotation tools, measurement, OCR and scrolling capture do not exist yet;
-> their menu items are visible but greyed out so you can see where they go.
+> **v0.1.0 — early.** Capture, the editor (zoom, pan, crop, undo), global
+> shortcuts and settings all work. Annotation tools, measurement, OCR and
+> scrolling capture do not exist yet; their menu items are visible but greyed
+> out so you can see where they go.
 
 ## Installing
 
@@ -116,14 +117,37 @@ the number rather than printing one that is wrong for half the picture.
 The screen is frozen while you select, so animations, hover states and video
 cannot move under your marquee.
 
-### Shortcuts are not global yet
+### Shortcuts
 
-`⌃⇧⌘4` currently only works when ScreenSculpt is the frontmost app. Global
-hotkeys that fire from anywhere need the `SSHotKeys` module, which is built but
-not wired up. **Use the menu bar icon for now** — that always works.
+These work **anywhere**, in any application — they do not need ScreenSculpt to
+be frontmost. Change them in Settings → Shortcuts.
 
-These deliberately avoid `⇧⌘3` / `⇧⌘4`, which macOS reserves for its own
-screenshot tool.
+The defaults deliberately add Control, because macOS reserves `⇧⌘3`, `⇧⌘4` and
+`⇧⌘5` for its own screenshot tool and would win silently if ScreenSculpt
+registered them. The recorder refuses those, refuses combinations already used
+by another ScreenSculpt command, and refuses anything without `⌘`, `⌃` or `⌥`
+(which would otherwise fire while you type).
+
+## Settings
+
+Menu bar icon → **Settings…**, or `⌘,`.
+
+| Pane | What is there |
+|---|---|
+| **General** | Screenshots folder, PNG/JPEG/automatic format, JPEG quality, Retina downscaling, filename template, what happens after a capture, window-capture background, launch at login, pointer visibility |
+| **Shortcuts** | All seven global shortcuts, with conflict detection |
+| **Editor** | Default zoom, pixel grid, always-on-top, what Escape does |
+| **Advanced** | OCR language, scrolling-capture limits, menu bar and Dock icons, confirmation style, `screensculpt://` automation, reset |
+| **Permissions** | Live status for both permissions, with the recovery action for each, plus a diagnostics report you can copy into a bug report |
+
+**Every setting is also a `defaults` key**, including ones with no UI:
+
+```bash
+defaults write app.screensculpt.ScreenSculpt saveFormat png
+defaults write app.screensculpt.ScreenSculpt filenameTemplate "shot-%Y-%m-%d"
+```
+
+Changes are picked up live — no relaunch needed.
 
 ## Troubleshooting
 
@@ -138,12 +162,22 @@ copies it finds. The fix:
 3. Click **+**, add it back from /Applications
 4. Quit and reopen ScreenSculpt
 
-**The permission disappears after every update.** This used to happen and is now
-fixed. Ad-hoc signing gave a designated requirement of `cdhash H"..."`, which
+**The permission disappears after every update.** Fixed, and verified across an
+update. Ad-hoc signing gave a designated requirement of `cdhash H"..."` which
 changes with every build, so macOS quietly stopped honouring the grant while
 still showing a ticked box. Builds are now signed with a self-signed certificate,
-which gives a stable `identifier + certificate` requirement instead. Run
-`make cert` once; `make dmg` picks it up automatically.
+giving a stable `identifier + certificate` requirement. Run `make cert` once;
+every build picks it up.
+
+**`--diagnose` says permission is denied, but the app works.** Expected. TCC
+attributes a permission request to the "responsible process", which for a binary
+started from a shell is your *terminal*, not ScreenSculpt. The report says so
+when it detects a tty. For a true reading:
+
+```bash
+open -n -a ScreenSculpt --args --diagnose
+cat ~/Library/Logs/ScreenSculpt-diagnostics.txt
+```
 
 **It asks for permission even though Settings shows it enabled.** macOS applies a
 screen-recording grant only when an app *starts*. If you approved it while

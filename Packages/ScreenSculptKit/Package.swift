@@ -214,5 +214,15 @@ let package = Package(
             dependencies: ["SSPlatform"],
             swiftSettings: uiSettings
         ),
+        .testTarget(
+            name: "SSPersistenceTests",
+            dependencies: ["SSPersistence"],
+            swiftSettings: uiSettings
+        ),
+        .testTarget(
+            name: "SSHotKeysTests",
+            dependencies: ["SSHotKeys"],
+            swiftSettings: uiSettings
+        ),
     ]
 )
