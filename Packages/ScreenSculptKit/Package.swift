@@ -215,6 +215,16 @@ let package = Package(
             swiftSettings: uiSettings
         ),
         .testTarget(
+            name: "SSEditorUITests",
+            dependencies: ["SSEditorUI", "SSDocument", "SSAnnotations"],
+            swiftSettings: uiSettings
+        ),
+        .testTarget(
+            name: "SSRenderTests",
+            dependencies: ["SSRender", "SSDocument", "SSAnnotations"],
+            swiftSettings: uiSettings
+        ),
+        .testTarget(
             name: "SSPersistenceTests",
             dependencies: ["SSPersistence"],
             swiftSettings: uiSettings

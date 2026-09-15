@@ -2,6 +2,7 @@
 // Copyright (c) 2026 The ScreenSculpt Authors
 
 import AppKit
+import SSAnnotations
 import SSDocument
 import SSGeometry
 import SSImaging
@@ -32,6 +33,7 @@ final class CanvasView: NSView {
     private let baseLayer = CALayer()
     let annotationLayer = AnnotationOverlayView()
     let dragScrim = DragScrimView()
+    let textEditor = TextEditingOverlay()
 
     /// Set by the window controller once the store exists.
     var tools: ToolController?
@@ -74,6 +76,8 @@ final class CanvasView: NSView {
             view.autoresizingMask = [.width, .height]
             addSubview(view)
         }
+        // Above everything, since it takes keyboard focus while active.
+        addSubview(textEditor)
     }
 
     @available(*, unavailable)
@@ -148,6 +152,46 @@ final class CanvasView: NSView {
 
     /// Hit tolerance in image pixels, from a fixed 9pt on screen.
     var hitTolerance: ImagePx { transform.toImage(ViewPt(9)) }
+
+    /// Open the inline field for a text annotation.
+    ///
+    /// Called when the text tool places one, and on double-click to re-edit.
+    func beginEditingText(_ annotation: Annotation) {
+        guard case .text(let body) = annotation.body, let store else { return }
+        textEditor.begin(
+            editing: annotation,
+            body: body,
+            transform: transform,
+            onCommit: { [weak self] text in
+                guard let self else { return }
+                var updated = annotation
+                if text.isEmpty {
+                    // An empty label is invisible and unselectable, so an
+                    // abandoned one is removed rather than left as a trap.
+                    store.select(annotation.id)
+                    store.deleteSelectedAnnotation()
+                } else {
+                    var edited = body
+                    edited.text = text
+                    updated.body = .text(edited)
+                    store.update(updated, name: "Edit Text")
+                }
+                onAnnotationsChanged?()
+                refreshAnnotations()
+                window?.makeFirstResponder(self)
+                needsDisplay = true
+            },
+            onCancel: { [weak self] in
+                guard let self else { return }
+                store.select(annotation.id)
+                store.deleteSelectedAnnotation()
+                onAnnotationsChanged?()
+                refreshAnnotations()
+                window?.makeFirstResponder(self)
+                needsDisplay = true
+            }
+        )
+    }
 
     // MARK: - Zoom and pan
 
