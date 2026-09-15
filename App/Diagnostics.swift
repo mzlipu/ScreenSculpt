@@ -58,6 +58,25 @@ enum Diagnostics {
             .appendingPathComponent("Library/Logs/ScreenSculpt-diagnostics.txt")
     }
 
+    /// Accessibility, which only scrolling capture needs.
+    ///
+    /// Reported separately from screen recording because it fails differently:
+    /// the grant is per copy of the app, so the usual symptom is a switch that
+    /// is visibly on for a bundle that is not this one.
+    private static func accessibilitySection() -> [String] {
+        var out = ["Accessibility (scrolling capture only):"]
+        let trusted = AXIsProcessTrusted()
+        out.append("  AXIsProcessTrusted(): \(trusted)")
+        if !trusted {
+            out.append("  Not granted to \(Bundle.main.bundleURL.path)")
+            out.append("  If the switch looks on already, the entry is against another copy")
+            out.append("  or an older build. Remove the row and add this one back, or run:")
+            out.append("    tccutil reset Accessibility \(Bundle.main.bundleIdentifier ?? "")")
+        }
+        out.append("")
+        return out
+    }
+
     /// Reports the configured shortcuts and flags any macOS already owns.
     ///
     /// A combination the system holds registers without error and then never
@@ -119,6 +138,7 @@ enum Diagnostics {
         }
         out.append("")
 
+        out += accessibilitySection()
         out += shortcutsSection()
 
         out.append("Signature:")
