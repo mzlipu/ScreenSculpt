@@ -37,8 +37,12 @@ let computeSettings: [SwiftSetting] = [
 //                     |
 //       SSEditorUI  SSCaptureUI  SSSettingsUI  SSStatusUI
 //
-// Never add an edge that points leftward. The compiler is the enforcement
-// mechanism: SSStitch does not link AppKit, so it *cannot* reach NSScreen.main.
+// Never add an edge that points leftward.
+//
+// Note SwiftPM does NOT stop a target importing a system framework it has not
+// declared — compiling `import AppKit` inside SSStitch succeeds. This graph
+// documents intent; the headless boundary is enforced by the SwiftLint rule
+// `no_appkit_in_compute_modules`.
 
 let package = Package(
     name: "ScreenSculptKit",
@@ -125,7 +129,9 @@ let package = Package(
         ),
         .target(
             name: "SSPlatform",
-            dependencies: ["SSGeometry", "SSPersistence"],
+            // SSImaging for ClipboardWriter, which encodes before writing to
+            // the pasteboard.
+            dependencies: ["SSGeometry", "SSImaging", "SSPersistence"],
             swiftSettings: uiSettings
         ),
         .target(

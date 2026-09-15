@@ -4,6 +4,8 @@
 import AppKit
 import SSCapture
 import SSCaptureUI
+import SSDocument
+import SSEditorUI
 import SSExport
 import SSGeometry
 import SSImaging
@@ -21,6 +23,10 @@ final class AppEnvironment {
     private var isCapturing = false
     private var confirmationTask: Task<Void, Never>?
     private var lastReceiptURL: URL?
+
+    /// Open editors, retained here because NSWindowController does not retain
+    /// itself and the window would otherwise vanish immediately.
+    private var editors: [ObjectIdentifier: EditorWindowController] = [:]
 
     init() {}
 
@@ -46,26 +52,34 @@ final class AppEnvironment {
 
     @objc func captureFullscreen() {
         runCapture { [captureService] in
-            try await captureService.capture(
-                CaptureRequest(mode: .fullscreen(displayID: nil))
-            ).image
+            try await captureService.capture(CaptureRequest(mode: .fullscreen(displayID: nil)))
         }
     }
 
     @objc func captureArea() {
         runCapture { [areaSelection] in
-            try await areaSelection.selectRegion()?.image
+            guard let selection = try await areaSelection.selectRegion() else { return nil }
+            return CaptureResult(
+                image: selection.image,
+                provenance: CaptureProvenance(
+                    sourceRect: selection.rect,
+                    pixelScale: selection.pixelScale,
+                    displays: [],
+                    sourceDisplayID: selection.displayID,
+                    spansMixedScales: false
+                )
+            )
         }
     }
 
     @objc func captureActiveWindow() {
         runCapture { [captureService] in
-            try await captureService.capture(CaptureRequest(mode: .activeWindow)).image
+            try await captureService.capture(CaptureRequest(mode: .activeWindow))
         }
     }
 
     /// Shared pipeline: check permission, capture, then save and copy.
-    private func runCapture(_ operation: @escaping () async throws -> RasterImage?) {
+    private func runCapture(_ operation: @escaping () async throws -> CaptureResult?) {
         guard !isCapturing else { return }
         isCapturing = true
 
@@ -75,14 +89,8 @@ final class AppEnvironment {
             guard await PermissionPresenter.ensureScreenRecording(permissions) else { return }
 
             do {
-                guard let image = try await operation() else { return }  // user cancelled
-                let receipt = try Exporter.save(image)
-                try ClipboardWriter.copy(image)
-                announce(
-                    "Screenshot saved",
-                    body: "\(receipt.url.lastPathComponent) — also copied to the clipboard",
-                    revealing: receipt.url
-                )
+                guard let result = try await operation() else { return }  // user cancelled
+                openEditor(for: result)
             } catch let error as CaptureError {
                 presentCaptureError(error)
             } catch {
@@ -120,6 +128,38 @@ final class AppEnvironment {
             """
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    // MARK: - Editor
+
+    /// Show the capture in an editor window on the display it came from.
+    private func openEditor(for result: CaptureResult) {
+        let screen = result.provenance.sourceDisplayID.flatMap { id in
+            NSScreen.screens.first { CocoaBridge.displayID(of: $0) == id }
+        }
+        let controller = EditorWindowController(
+            image: result.image,
+            measurementUnavailable: result.provenance.spansMixedScales,
+            onScreen: screen
+        )
+        // NSWindowController does not retain itself, so the window would close
+        // the moment this function returns.
+        let key = ObjectIdentifier(controller)
+        editors[key] = controller
+
+        controller.onCopy = { [weak self] image in
+            _ = try? ClipboardWriter.copy(image)
+            self?.announce("Copied", body: "Image copied to the clipboard")
+        }
+        controller.onSave = { [weak self] image in
+            guard let receipt = try? Exporter.save(image) else { return }
+            self?.announce("Saved", body: receipt.url.lastPathComponent, revealing: receipt.url)
+        }
+        controller.onClose = { [weak self] in self?.editors[key] = nil }
+
+        controller.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        controller.window?.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - Feedback

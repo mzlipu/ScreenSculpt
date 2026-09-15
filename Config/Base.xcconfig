@@ -24,8 +24,16 @@ ENABLE_APP_SANDBOX = NO
 // notarization it only adds library-validation restrictions with no upside.
 ENABLE_HARDENED_RUNTIME = NO
 
-// Signing is ad-hoc. See docs — no Apple Developer Program.
-CODE_SIGN_IDENTITY = -
+// Signed with a local self-signed certificate rather than ad-hoc.
+//
+// Ad-hoc gives a `cdhash` designated requirement, which changes on every build
+// and silently invalidates the user's Screen Recording grant each time. A
+// certificate gives `identifier + certificate leaf`, which is stable — so the
+// permission survives rebuilds, and every copy on disk shares one requirement.
+//
+// Run `make cert` once to create it. CI passes CODE_SIGNING_ALLOWED=NO, and
+// make-dmg.sh falls back to ad-hoc with a warning if the certificate is absent.
+CODE_SIGN_IDENTITY = ScreenSculpt Local Dev
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_ENTITLEMENTS =
 

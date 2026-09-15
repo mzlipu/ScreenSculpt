@@ -38,16 +38,21 @@ enum Diagnostics {
         out.append("Translocated: \(Bundle.main.bundleURL.path.contains("/AppTranslocation/"))")
         out.append("")
 
-        // Every copy on disk. Two copies with an ad-hoc signature means two
-        // different cdhashes, so a grant given to one does nothing for the
-        // other — while both appear as "ScreenSculpt" in System Settings.
+        // Copies on disk. When they share a signing certificate they share a
+        // designated requirement too, so they no longer compete for the grant —
+        // only build artefacts in DerivedData are worth calling out, and only
+        // then as noise rather than a fault.
         let copies = NSWorkspace.shared.urlsForApplications(
             withBundleIdentifier: Bundle.main.bundleIdentifier ?? ""
         )
         out.append("Copies on disk (\(copies.count)):")
-        for url in copies { out.append("  \(url.path)") }
-        if copies.count > 1 {
-            out.append("  ⚠️  More than one copy. Delete all but /Applications.")
+        for url in copies {
+            let isBuildArtefact = url.path.contains("/DerivedData/")
+            out.append("  \(url.path)\(isBuildArtefact ? "   [build artefact]" : "")")
+        }
+        let installed = copies.filter { !$0.path.contains("/DerivedData/") }
+        if installed.count > 1 {
+            out.append("  ⚠️  More than one installed copy — keep only /Applications.")
         }
         out.append("")
 
