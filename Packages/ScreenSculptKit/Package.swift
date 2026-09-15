@@ -202,6 +202,11 @@ let package = Package(
             swiftSettings: computeSettings
         ),
         .testTarget(
+            name: "SSCaptureTests",
+            dependencies: ["SSCapture", "SSStitch", "SSImaging", "SSGeometry"],
+            swiftSettings: uiSettings
+        ),
+        .testTarget(
             name: "SSMeasureTests",
             dependencies: ["SSMeasure", "SSImaging"],
             swiftSettings: computeSettings
