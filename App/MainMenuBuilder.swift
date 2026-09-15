@@ -14,9 +14,13 @@ import AppKit
 @MainActor
 enum MainMenuBuilder {
 
-    static func install() {
+    private static var target: AnyObject?
+
+    static func install(target: AnyObject? = nil) {
+        self.target = target
         let main = NSMenu()
         main.addItem(appMenuItem())
+        main.addItem(captureMenuItem())
         main.addItem(fileMenuItem())
         main.addItem(editMenuItem())
         main.addItem(drawMenuItem())
@@ -58,6 +62,19 @@ enum MainMenuBuilder {
             action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
         )
         return wrap(menu, title: "ScreenSculpt")
+    }
+
+    private static func captureMenuItem() -> NSMenuItem {
+        let menu = NSMenu(title: "Capture")
+        menu.addItem(live("Capture Area…", #selector(AppEnvironment.captureArea), "4",
+                          [.command, .shift, .control]))
+        menu.addItem(live("Capture Fullscreen", #selector(AppEnvironment.captureFullscreen), "3",
+                          [.command, .shift, .control]))
+        menu.addItem(live(
+            "Capture Active Window", #selector(AppEnvironment.captureActiveWindow), "5",
+            [.command, .shift, .control]
+        ))
+        return wrap(menu, title: "Capture")
     }
 
     private static func fileMenuItem() -> NSMenuItem {
@@ -189,6 +206,16 @@ enum MainMenuBuilder {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.submenu = menu
         menu.title = title
+        return item
+    }
+
+    /// A menu item wired to a real action on the composition root.
+    private static func live(
+        _ title: String, _ action: Selector, _ key: String, _ modifiers: NSEvent.ModifierFlags
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
+        item.target = target
         return item
     }
 

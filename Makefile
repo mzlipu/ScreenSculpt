@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 PKG := Packages/ScreenSculptKit
 
-.PHONY: help bootstrap generate test test-fast build run clean doctor
+.PHONY: help bootstrap generate test test-fast build run dmg clean doctor
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -37,6 +37,10 @@ run: build ## Build and launch
 	  open "$$(xcodebuild -project ScreenSculpt.xcodeproj -scheme ScreenSculpt \
 	    -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $$2}' | \
 	    head -1)/ScreenSculpt.app"
+
+dmg: ## Build a distributable .dmg (Release, universal, ad-hoc signed)
+	@mkdir -p build
+	./scripts/make-dmg.sh
 
 clean: ## Remove build output
 	rm -rf build .build DerivedData ScreenSculpt.xcodeproj
