@@ -18,6 +18,8 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     public var onCopy: ((RasterImage) -> Void)?
     public var onSave: ((RasterImage) -> Void)?
     public var onClose: (() -> Void)?
+    /// Transient one-line feedback for actions with no visible result.
+    public var onStatusMessage: ((String) -> Void)?
 
     private let store: DocumentStore
     private let canvas: CanvasView
@@ -100,6 +102,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         // back without hunting for a separate arrow button.
         tools.tool = tools.tool == .draw(kind) ? .select : .draw(kind)
         canvas.window?.toolbar?.validateVisibleItems()
+        updateStatus()
     }
 
     @objc public func toolArrow() { chooseTool(.arrow) }
@@ -116,6 +119,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     public func chooseTool(_ kind: AnnotationKind?) {
         tools.tool = kind.map { EditorTool.draw($0) } ?? .select
         window?.toolbar?.validateVisibleItems()
+        updateStatus()
     }
 
     @objc public func deleteAnnotation() {
@@ -133,9 +137,17 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Worth doing before sharing: until it happens the hidden pixels under a
     /// blur are still in the document.
     @objc public func flattenAnnotations() {
-        guard !store.annotations.isEmpty else { return }
+        let count = store.annotations.count
+        guard count > 0 else { return }
         store.flatten(using: AnnotationRenderer.flatten(store.document))
         refresh()
+        // Flatten leaves the picture identical, so without a word it reads as
+        // a button that does nothing.
+        onStatusMessage?(
+            count == 1
+                ? "Merged 1 object into the image"
+                : "Merged \(count) objects into the image"
+        )
     }
 
     /// The image with annotations merged in — what every export path uses.
@@ -207,12 +219,25 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
                 + "\(Int(size.height.inPoints(scale).value)) pt")
         }
         parts.append("\(Int((canvas.transform.zoom * 100).rounded()))%")
+
+        // The active tool, because a modal drawing tool is otherwise invisible
+        // state — there is no cue that the next drag will draw rather than
+        // select.
+        if let kind = tools.tool.kind { parts.append("\(kind.label) tool") }
+
+        // The object count, because Flatten's whole effect is to consume
+        // objects, and without this the button looks like it does nothing.
+        let count = store.annotations.count
+        if count > 0 {
+            parts.append(count == 1 ? "1 object" : "\(count) objects")
+        }
+
         if store.document.measurementUnavailable {
             // Honest about it rather than printing a number that is wrong for
             // half the image.
             parts.append("mixed-scale capture — measurements unavailable")
         }
-        window?.subtitle = parts.joined(separator: "   ")
+        window?.subtitle = parts.joined(separator: "  ·  ")
     }
 }
 
@@ -294,8 +319,10 @@ extension EditorWindowController: NSToolbarDelegate {
             )
         case Item.flatten:
             makeItem(
-                identifier, label: "Flatten",
-                tooltip: "Merge annotations into the image. Do this before sharing.",
+                identifier, label: "Merge",
+                tooltip: "Merge every annotation permanently into the pixels.\n"
+                    + "The picture will look the same — but blurred areas can no "
+                    + "longer be moved, and the hidden pixels are gone for good.",
                 symbol: "square.stack.3d.down.forward",
                 action: #selector(flattenAnnotations)
             )
