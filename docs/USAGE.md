@@ -1,8 +1,8 @@
 # Using ScreenSculpt
 
 > **v0.1.0 — early.** Capture, the editor, nine annotation tools, measurement
-> and colour, global shortcuts and settings all work. OCR and scrolling capture
-> do not exist yet.
+> and colour, text recognition, global shortcuts and settings all work.
+> Scrolling capture does not exist yet.
 
 ## Installing
 
@@ -232,6 +232,41 @@ If a capture spanned two displays with different scale factors, measurement is
 **disabled** and the title bar says so. No single pixels-per-point conversion is
 correct for such an image, and a number that is right for half the picture is
 worse than no number.
+
+## Reading text out of a picture
+
+| Action | Where |
+|---|---|
+| Copy text from a region of the screen | Menu bar → assign a shortcut in Settings |
+| Copy text from the open capture | `⇧⌘O`, or Measure → Recognise Text |
+| Copy a QR or barcode payload | Measure → Recognise QR or Barcode |
+
+With a marquee active, only that area is read. Without one, the whole image is.
+
+Text comes out in **reading order**, not the order Vision happened to find it —
+lines are clustered by vertical overlap and columns are detected, so a
+two-column layout copies down each column rather than across both. Turn on
+*Remove line breaks* in Settings → Advanced to rejoin wrapped lines while
+keeping deliberate paragraph breaks.
+
+Pick the language in Settings → Advanced. The list is queried from macOS at
+runtime, so it always matches what your OS can actually recognise.
+
+QR codes with binary payloads are copied as hex rather than reported as
+"nothing found" — there *is* a code, it just is not text.
+
+### Hiding text only
+
+The blur tool has a **Text only** mode: press `M` with a blur selected to cycle
+through Pixelate → Blur → Solid → Text only.
+
+Text-only covers just the detected words and leaves the surrounding interface
+untouched — so a screenshot of a settings page can have the email address hidden
+without a grey slab across the layout.
+
+Two of the four modes are honest about reversibility. **Pixelate**, **Solid** and
+**Text only** discard the original pixels. Plain **Blur** at a small radius is in
+principle partially reversible, and the app says so when you select it.
 
 ## Settings
 

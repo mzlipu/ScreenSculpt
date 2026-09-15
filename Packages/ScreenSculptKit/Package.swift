@@ -89,7 +89,9 @@ let package = Package(
         ),
         .target(
             name: "SSRender",
-            dependencies: ["SSGeometry", "SSImaging", "SSAnnotations", "SSDocument"],
+            dependencies: [
+                "SSGeometry", "SSImaging", "SSAnnotations", "SSDocument", "SSRecognition",
+            ],
             swiftSettings: uiSettings
         ),
 
@@ -213,6 +215,11 @@ let package = Package(
             name: "SSPlatformTests",
             dependencies: ["SSPlatform"],
             swiftSettings: uiSettings
+        ),
+        .testTarget(
+            name: "SSRecognitionTests",
+            dependencies: ["SSRecognition", "SSImaging"],
+            swiftSettings: computeSettings
         ),
         .testTarget(
             name: "SSEditorUITests",

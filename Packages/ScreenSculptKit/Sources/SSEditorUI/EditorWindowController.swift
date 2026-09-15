@@ -7,6 +7,8 @@ import SSDocument
 import SSGeometry
 import SSImaging
 import SSMeasure
+import SSPersistence
+import SSRecognition
 import SSRender
 
 /// The editor window: one capture, a canvas, and a toolbar.
@@ -22,14 +24,22 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// Transient one-line feedback for actions with no visible result.
     public var onStatusMessage: ((String) -> Void)?
 
-    private let store: DocumentStore
+    let store: DocumentStore
     private let canvas: CanvasView
     private let tools: ToolController
     private let measurement: MeasurementController
     private var zoomLabel: NSToolbarItem?
     private var statusField: NSTextField?
 
-    public init(image: RasterImage, measurementUnavailable: Bool = false, onScreen: NSScreen?) {
+    let settings: SettingsStore
+
+    public init(
+        image: RasterImage,
+        measurementUnavailable: Bool = false,
+        onScreen: NSScreen?,
+        settings: SettingsStore
+    ) {
+        self.settings = settings
         store = DocumentStore(image: image, measurementUnavailable: measurementUnavailable)
         canvas = CanvasView(image: image)
         tools = ToolController(store: store)
@@ -201,7 +211,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
         AnnotationRenderer.flatten(store.document)
     }
 
-    private func refresh() {
+    func refresh() {
         canvas.update(image: store.raster, selection: store.document.selection)
         canvas.refreshAnnotations()
         window?.toolbar?.validateVisibleItems()
