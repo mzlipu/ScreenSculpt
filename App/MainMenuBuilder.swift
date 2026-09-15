@@ -2,6 +2,7 @@
 // Copyright (c) 2026 The ScreenSculpt Authors
 
 import AppKit
+import SSHotKeys
 import SSEditorUI
 
 /// Builds the main menu bar in code.
@@ -70,15 +71,34 @@ enum MainMenuBuilder {
 
     private static func captureMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "Capture")
-        menu.addItem(live("Capture Area…", #selector(AppEnvironment.captureArea), "4",
-                          [.command, .shift, .control]))
-        menu.addItem(live("Capture Fullscreen", #selector(AppEnvironment.captureFullscreen), "3",
-                          [.command, .shift, .control]))
-        menu.addItem(live(
-            "Capture Active Window", #selector(AppEnvironment.captureActiveWindow), "5",
-            [.command, .shift, .control]
+        menu.addItem(bound("Capture Area…", #selector(AppEnvironment.captureArea), .captureArea))
+        menu.addItem(bound(
+            "Capture Fullscreen", #selector(AppEnvironment.captureFullscreen), .captureFullscreen
+        ))
+        menu.addItem(bound(
+            "Capture Active Window", #selector(AppEnvironment.captureActiveWindow), .captureWindow
+        ))
+        menu.addItem(.separator())
+        menu.addItem(bound(
+            "Capture Scrolling Page…", #selector(AppEnvironment.captureScrolling),
+            .captureScrolling
         ))
         return wrap(menu, title: "Capture")
+    }
+
+    /// A menu item showing whatever shortcut is actually registered.
+    ///
+    /// Repeating the combination as a literal here is how a menu ends up
+    /// advertising a shortcut the user changed months ago, or one the defaults
+    /// moved out from under.
+    private static func bound(
+        _ title: String, _ action: Selector, _ id: HotKeyID
+    ) -> NSMenuItem {
+        guard let binding = (target as? AppEnvironment)?.hotKeys.bindings[id] else {
+            return live(title, action, "", [])
+        }
+        let equivalent = binding.menuKeyEquivalent
+        return live(title, action, equivalent.key, equivalent.modifiers)
     }
 
     private static func fileMenuItem() -> NSMenuItem {

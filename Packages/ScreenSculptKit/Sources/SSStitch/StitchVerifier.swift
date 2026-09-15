@@ -43,9 +43,17 @@ public enum StitchVerifier {
             offset < previous.height
         else { return OverlapCheck(error: .infinity, rows: 0, passed: false) }
 
+        // Row `r` of `next` pairs with row `r + offset` of `previous`, so both
+        // ends have to stay inside their own frame's content region. Bounding
+        // only the near side lets the tail of the comparison run into the
+        // previous frame's footer, where a fixed band is matched against real
+        // content and every correct offset is rejected.
         let firstRow = sticky.top
-        let lastRow = min(previous.height, next.height - sticky.bottom)
-        let available = min(lastRow - firstRow, previous.height - offset - firstRow)
+        let lastRow = min(
+            next.height - sticky.bottom,
+            previous.height - sticky.bottom - offset
+        )
+        let available = lastRow - firstRow
         guard available > 0 else {
             return OverlapCheck(error: .infinity, rows: 0, passed: false)
         }
