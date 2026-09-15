@@ -10,6 +10,8 @@ public enum ConcealMode: String, Codable, Sendable, CaseIterable, Identifiable {
     case pixelate
     case blur
     case solid
+    /// Covers only detected text, leaving the surrounding interface intact.
+    case textOnly
 
     public var id: String { rawValue }
 
@@ -18,8 +20,12 @@ public enum ConcealMode: String, Codable, Sendable, CaseIterable, Identifiable {
         case .pixelate: "Pixelate"
         case .blur: "Blur"
         case .solid: "Solid block"
+        case .textOnly: "Text only"
         }
     }
+
+    /// True when the effect applies to detected text rather than the whole rect.
+    public var isTextTargeted: Bool { self == .textOnly }
 
     /// Whether the original pixels can in principle be recovered from the
     /// result. Surfaced in the UI, because "I blurred it" is a claim people
@@ -29,6 +35,7 @@ public enum ConcealMode: String, Codable, Sendable, CaseIterable, Identifiable {
         case .pixelate: true      // averaged over a block; information is gone
         case .blur: false         // small-radius Gaussian is partially invertible
         case .solid: true
+        case .textOnly: true      // pixelates the detected words
         }
     }
 }
@@ -119,6 +126,12 @@ public enum ConcealRenderer {
         }
 
         switch body.mode {
+        case .textOnly:
+            // Handled by the renderer, which has the detected text regions.
+            // Falling through to pixelate here would hide the whole rect and
+            // silently defeat the point of the mode.
+            return (filtered(cropped, filter: pixelateFilter(body.intensity)) ?? cropped,
+                    clamped.cgRect)
         case .solid:
             return (solidPatch(size: clamped, from: cropped) ?? cropped, clamped.cgRect)
         case .pixelate:

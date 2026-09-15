@@ -12,6 +12,7 @@ import SSHotKeys
 import SSImaging
 import SSPersistence
 import SSPlatform
+import SSRecognition
 import SSSettingsUI
 
 /// Composition root — the only place services are constructed and wired.
@@ -56,7 +57,7 @@ final class AppEnvironment {
             case .captureWindow: captureActiveWindow()
             case .captureRepeat: captureArea()      // repeat-region lands with Phase 2
             case .captureDelayed: captureFullscreen()
-            case .recogniseText: captureArea()      // OCR lands with Phase 4
+            case .recogniseText: recogniseTextFromScreen()
             case .showApp: showEditor()
             }
         }
@@ -216,6 +217,39 @@ final class AppEnvironment {
         alert.runModal()
     }
 
+    /// Select a region and copy its text straight to the clipboard.
+    ///
+    /// Deliberately never opens the editor: the point of this mode is to get
+    /// text out of something unselectable in one gesture.
+    @objc func recogniseTextFromScreen() {
+        guard !isCapturing else { return }
+        isCapturing = true
+
+        Task { @MainActor in
+            defer { isCapturing = false }
+            guard await PermissionPresenter.ensureScreenRecording(permissions) else { return }
+
+            do {
+                guard let selection = try await areaSelection.selectRegion() else { return }
+                let recognizer = TextRecognizer(
+                    languages: [settings[Settings.primaryOCRLanguage]],
+                    removeLineBreaks: settings[Settings.ocrRemoveLineBreaks]
+                )
+                let result = try recognizer.recognize(in: selection.image)
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(result.plainText, forType: .string)
+
+                let lines = result.plainText.split(separator: "\n").count
+                announce(
+                    "Text copied",
+                    body: lines == 1 ? "1 line" : "\(lines) lines"
+                )
+            } catch {
+                announce("No text found", body: error.localizedDescription)
+            }
+        }
+    }
+
     // MARK: - Editor
 
     /// Show the capture in an editor window on the display it came from.
@@ -226,7 +260,8 @@ final class AppEnvironment {
         let controller = EditorWindowController(
             image: result.image,
             measurementUnavailable: result.provenance.spansMixedScales,
-            onScreen: screen
+            onScreen: screen,
+            settings: settings
         )
         // NSWindowController does not retain itself, so the window would close
         // the moment this function returns.

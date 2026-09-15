@@ -35,6 +35,17 @@ extension MainMenuBuilder {
         menu.addItem(responder(
             "Clear Contrast Check", #selector(EditorWindowController.clearContrast), ""
         ))
+        menu.addItem(.separator())
+        menu.addItem(responder(
+            "Recognise Text", #selector(EditorWindowController.recogniseText), "o",
+            [.command, .shift]
+        ))
+        menu.addItem(responder(
+            "Recognise QR or Barcode", #selector(EditorWindowController.recogniseCodes), ""
+        ))
+        menu.addItem(responder(
+            "Cycle Blur Mode", #selector(EditorWindowController.cycleConcealMode), "m", []
+        ))
         return wrap(menu, title: "Measure")
     }
 

@@ -7,6 +7,7 @@ import SSAnnotations
 import SSDocument
 import SSGeometry
 import SSImaging
+import SSRecognition
 
 /// Draws annotations, on screen and for export.
 ///
@@ -51,6 +52,10 @@ public enum AnnotationRenderer {
     private static func drawConceal(
         _ body: ConcealBody, baseImage: CGImage, in context: CGContext
     ) {
+        if body.mode.isTextTargeted {
+            drawTextOnlyConceal(body, baseImage: baseImage, in: context)
+            return
+        }
         guard let patch = ConcealRenderer.patch(for: body, in: baseImage) else { return }
         // The context is flipped relative to CGImage's coordinate system, so
         // un-flip locally rather than globally — flipping the whole context
@@ -60,6 +65,28 @@ public enum AnnotationRenderer {
         context.scaleBy(x: 1, y: -1)
         context.draw(patch.image, in: patch.rect)
         context.restoreGState()
+    }
+
+    /// Cover only the words inside the region.
+    ///
+    /// The detected rects are cached per (image, region) because recognition
+    /// costs tens of milliseconds and the renderer runs on every redraw — doing
+    /// it inline would make dragging a text-only blur unusable.
+    private static func drawTextOnlyConceal(
+        _ body: ConcealBody, baseImage: CGImage, in context: CGContext
+    ) {
+        let regions = TextRegionCache.regions(for: body.rect, in: baseImage)
+        for region in regions {
+            var word = body
+            word.rect = region
+            word.mode = .pixelate
+            guard let patch = ConcealRenderer.patch(for: word, in: baseImage) else { continue }
+            context.saveGState()
+            context.translateBy(x: 0, y: patch.rect.midY * 2)
+            context.scaleBy(x: 1, y: -1)
+            context.draw(patch.image, in: patch.rect)
+            context.restoreGState()
+        }
     }
 
     /// Composite the raster and every annotation into one image.
@@ -100,5 +127,34 @@ public enum AnnotationRenderer {
 
         guard let output = context.makeImage() else { return base }
         return RasterImage(cgImage: output, pixelScale: base.pixelScale)
+    }
+}
+
+/// Memoises detected text regions.
+///
+/// Recognition is far too slow to run inside a draw call, and the answer only
+/// changes when the image or the region does.
+@MainActor
+enum TextRegionCache {
+
+    private struct Key: Hashable {
+        let image: ObjectIdentifier
+        let rect: ImageRect
+    }
+
+    private static var cache: [Key: [ImageRect]] = [:]
+
+    static func regions(for rect: ImageRect, in image: CGImage) -> [ImageRect] {
+        let key = Key(image: ObjectIdentifier(image), rect: rect)
+        if let cached = cache[key] { return cached }
+
+        let found = TextRegionMasker.textRegions(
+            in: RasterImage(cgImage: image, pixelScale: .x1), within: rect
+        )
+        // Bounded, because a long session with many edits would otherwise grow
+        // this without limit.
+        if cache.count > 64 { cache.removeAll() }
+        cache[key] = found
+        return found
     }
 }
