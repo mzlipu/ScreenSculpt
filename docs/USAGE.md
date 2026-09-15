@@ -1,8 +1,8 @@
 # Using ScreenSculpt
 
-> **v0.1.0 — early.** Capture, the editor, nine annotation tools, global
-> shortcuts and settings all work. Measurement, OCR and scrolling capture do not
-> exist yet.
+> **v0.1.0 — early.** Capture, the editor, nine annotation tools, measurement
+> and colour, global shortcuts and settings all work. OCR and scrolling capture
+> do not exist yet.
 
 ## Installing
 
@@ -191,6 +191,47 @@ The defaults deliberately add Control, because macOS reserves `⇧⌘3`, `⇧⌘
 registered them. The recorder refuses those, refuses combinations already used
 by another ScreenSculpt command, and refuses anything without `⌘`, `⌃` or `⌥`
 (which would otherwise fire while you type).
+
+## Measuring and colour
+
+Move the pointer over the image and the title bar shows the colour and position
+under it, live.
+
+| Action | Key | What it does |
+|---|---|---|
+| Copy pixel colour | `Tab` | The exact stored value under the pointer |
+| Copy text colour | `⇧Tab` | The dark stroke near the pointer, ignoring antialiasing |
+| Copy average colour | `C` | Mean of the marquee, averaged correctly in linear space |
+| Measure | Arrow keys | With no marquee, measures the run under the pointer |
+| Auto-fit marquee | `⇧⌘A` | Snaps the marquee out to the edges of what it covers |
+| Points ↔ pixels | `P` | Display toggle only — the measurement never changes |
+| Contrast check | `X` | Press over the text, then over the background |
+
+Colours copy in whatever format you pick in the readout: HEX, HEX without `#`,
+RGB, RGBA, HSL, **OKLCH**, or a SwiftUI `Color(...)` literal. What you see is
+exactly what gets pasted.
+
+### Contrast
+
+Press `X` over the foreground, then `X` over the background. The title bar then
+reports **both** standards:
+
+```
+WCAG 4.54:1 AA  ·  APCA Lc 68 — Large text only
+```
+
+They disagree on purpose. WCAG 2 is the figure audits still cite, but it is a
+poor model of perception — it over-rates light-on-dark and under-rates mid-tones.
+APCA (revision 0.1.9) models it better, is signed to carry polarity, and is
+graded by what the text can actually be used for. Roughly: Lc 75 for body text,
+Lc 90 for thin or small type.
+
+### A caveat worth knowing
+
+If a capture spanned two displays with different scale factors, measurement is
+**disabled** and the title bar says so. No single pixels-per-point conversion is
+correct for such an image, and a number that is right for half the picture is
+worse than no number.
 
 ## Settings
 
