@@ -13,9 +13,13 @@ pixel. Read a colour and check its contrast. Pull text out of anything on screen
 
 </div>
 
-> **Status: early development.** The geometry core and module scaffolding are in
-> place and tested. Capture, the editor and everything else are being built —
-> see [the roadmap](#roadmap). There is no release to download yet.
+> **Status: v0.1.0, early.** Area / fullscreen / window capture work, saving to
+> disk and the clipboard work. The editor, annotation tools, measurement, OCR and
+> scrolling capture do not exist yet — see [the roadmap](#roadmap).
+>
+> **ScreenSculpt is a menu bar app with no window.** After launching it, look for
+> the viewfinder icon at the top-right of your screen. See
+> [docs/USAGE.md](docs/USAGE.md).
 
 ---
 
@@ -102,7 +106,8 @@ bucket and your credentials, stored in the macOS Keychain.
 
 | Phase | Contents | Status |
 |---|---|---|
-| 1 | Capture, editor, nine annotation tools, save/copy | in progress |
+| 1a | Area / fullscreen / window capture, save, clipboard | **done** |
+| 1b | Editor window, crop, zoom, nine annotation tools | in progress |
 | 2 | Measurement, colour, contrast, auto-fit selection | |
 | 3 | Scrolling capture | |
 | 4 | OCR, QR, text-only redaction | |
