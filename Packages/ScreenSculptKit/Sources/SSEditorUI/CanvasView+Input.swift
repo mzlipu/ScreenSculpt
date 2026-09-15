@@ -2,6 +2,7 @@
 // Copyright (c) 2026 The ScreenSculpt Authors
 
 import AppKit
+import SSAnnotations
 import SSDocument
 import SSGeometry
 import SSImaging
@@ -22,11 +23,30 @@ extension CanvasView {
             return
         }
 
+        // A field open on screen commits before anything else happens.
+        if textEditor.isEditing { textEditor.finish(); return }
+
+        // Double-clicking an existing label re-opens it for editing.
+        if event.clickCount == 2, tools?.tool == .select,
+           let hit = store?.annotations.hitTest(point, tolerance: hitTolerance),
+           hit.0.kind == .text {
+            store?.select(hit.0.id)
+            beginEditingText(hit.0)
+            return
+        }
+
         // Annotations get first refusal. Only when nothing is hit — and the
         // select tool is active — does the drag become a crop marquee.
         if let tools, tools.begin(
             at: point, tolerance: hitTolerance, modifiers: event.modifierFlags
         ) {
+            // The text tool places a label and immediately opens it for typing;
+            // without this the tool produces an empty box and no way to fill it.
+            if let placed = store?.selectedAnnotation, placed.kind == .text {
+                refreshAnnotations()
+                beginEditingText(placed)
+                return
+            }
             beginSnapping()
             refreshAnnotations()
             needsDisplay = true

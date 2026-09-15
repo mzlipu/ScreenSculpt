@@ -106,7 +106,7 @@ Pick one from the toolbar, or press its letter. Press the same letter again — 
 | Line | `L` | |
 | Rectangle | `R` | Shift-drag for a square |
 | Oval | `O` | Shift-drag for a circle |
-| Text | `T` | Click to place a label |
+| Text | `T` | Click, then type. Enter commits, Escape discards. Double-click a label to re-edit it |
 | Freehand | `D` | Smoothed as you draw |
 | Highlighter | `H` | Multiplies, so overlapping passes darken |
 | Blur | `B` | Pixelate, blur or solid block |

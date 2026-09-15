@@ -20,12 +20,7 @@ public struct FreehandBody: AnnotationBody {
 
     public init(points: [ImagePoint]) { self.points = points }
 
-    public var bounds: ImageRect {
-        guard let first = points.first else { return .zero }
-        return points.dropFirst().reduce(ImageRect(corner: first, opposite: first)) {
-            $0.union(ImageRect(corner: $1, opposite: $1))
-        }
-    }
+    public var bounds: ImageRect { Self.boundingBox(of: points) }
 
     public func handles(style: AnnotationStyle) -> [Handle] {
         // Deliberately none. Reshaping a freehand stroke by dragging vertices
@@ -86,6 +81,30 @@ public struct FreehandBody: AnnotationBody {
         context.strokePath()
     }
 
+    /// Axis-aligned box containing every point.
+    ///
+    /// Computed from min/max directly rather than by unioning per-point rects.
+    /// A zero-size rect is `isEmpty`, and `ImageRect.union` returns the *other*
+    /// operand when the receiver is empty — so folding over degenerate rects
+    /// collapses to the last point, not the bounding box. That produced a
+    /// zero-size box for every stroke, which made `finishCreating` treat a
+    /// finished stroke as an accidental click and delete it.
+    static func boundingBox(of points: [ImagePoint]) -> ImageRect {
+        guard let first = points.first else { return .zero }
+        var minX = first.x.value, maxX = first.x.value
+        var minY = first.y.value, maxY = first.y.value
+        for point in points.dropFirst() {
+            minX = Swift.min(minX, point.x.value)
+            maxX = Swift.max(maxX, point.x.value)
+            minY = Swift.min(minY, point.y.value)
+            maxY = Swift.max(maxY, point.y.value)
+        }
+        return ImageRect(
+            x: ImagePx(minX), y: ImagePx(minY),
+            width: ImagePx(maxX - minX), height: ImagePx(maxY - minY)
+        )
+    }
+
     /// Ramer–Douglas–Peucker. `epsilon` is in image pixels.
     public static func simplified(_ points: [ImagePoint], epsilon: Double = 1.2) -> [ImagePoint] {
         guard points.count > 2 else { return points }
@@ -120,12 +139,7 @@ public struct HighlighterBody: AnnotationBody {
 
     public init(points: [ImagePoint]) { self.points = points }
 
-    public var bounds: ImageRect {
-        guard let first = points.first else { return .zero }
-        return points.dropFirst().reduce(ImageRect(corner: first, opposite: first)) {
-            $0.union(ImageRect(corner: $1, opposite: $1))
-        }
-    }
+    public var bounds: ImageRect { FreehandBody.boundingBox(of: points) }
 
     public func dirtyBounds(style: AnnotationStyle) -> ImageRect {
         bounds.outsetBy(ImagePx(style.strokeWidth * 4))
