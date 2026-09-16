@@ -87,29 +87,55 @@ extension CanvasView {
         context.strokePath()
     }
 
-    func drawSizeLabel(for rect: ImageRect, at canvas: CGRect, in context: CGContext) {
+    /// The dimensions of a selection, in pixels and — on a retina capture —
+    /// points as well.
+    func sizeLabelText(for rect: ImageRect) -> String {
         let scale = image.pixelScale
         let pixels = "\(Int(rect.width.value)) × \(Int(rect.height.value)) px"
+        guard scale.isRetina else { return pixels }
         let points = "\(Int(rect.width.inPoints(scale).value)) × "
             + "\(Int(rect.height.inPoints(scale).value)) pt"
-        let text = scale.isRetina ? "\(pixels)   \(points)" : pixels
+        return "\(pixels)   \(points)"
+    }
 
+    func drawSizeLabel(for rect: ImageRect, at canvas: CGRect, in context: CGContext) {
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
             .foregroundColor: NSColor.white,
         ]
-        let string = NSAttributedString(string: text, attributes: attributes)
+        let string = NSAttributedString(string: sizeLabelText(for: rect), attributes: attributes)
         let size = string.size()
-        var origin = CGPoint(x: canvas.minX, y: canvas.minY - size.height - 6)
-        if origin.y < 2 { origin.y = canvas.maxY + 6 }
+
+        // While dragging, sit beside the pointer. Otherwise anchor to the
+        // top-left of the finished selection, where it is out of the way.
+        var origin: CGPoint
+        if isDraggingSelection, let cursor = selectionCursor {
+            let point = transform.toCanvas(cursor).cgPoint
+            origin = CGPoint(x: point.x + 14, y: point.y + 14)
+            // Flip to the other side of the pointer near an edge, rather than
+            // letting the readout run off the view.
+            if origin.x + size.width + 10 > bounds.maxX {
+                origin.x = point.x - size.width - 22
+            }
+            if origin.y + size.height + 8 > bounds.maxY {
+                origin.y = point.y - size.height - 20
+            }
+        } else {
+            origin = CGPoint(x: canvas.minX, y: canvas.minY - size.height - 8)
+            if origin.y < 2 { origin.y = canvas.maxY + 8 }
+        }
         origin.x = min(max(origin.x, 2), bounds.maxX - size.width - 10)
+        origin.y = min(max(origin.y, 2), bounds.maxY - size.height - 6)
 
         let box = CGRect(
-            x: origin.x, y: origin.y, width: size.width + 8, height: size.height + 4
+            x: origin.x, y: origin.y, width: size.width + 12, height: size.height + 6
         )
-        context.setFillColor(NSColor.black.withAlphaComponent(0.75).cgColor)
-        context.fill(box)
-        string.draw(at: CGPoint(x: box.minX + 4, y: box.minY + 2))
+        context.setFillColor(NSColor.black.withAlphaComponent(0.82).cgColor)
+        context.addPath(CGPath(
+            roundedRect: box, cornerWidth: 4, cornerHeight: 4, transform: nil
+        ))
+        context.fillPath()
+        string.draw(at: CGPoint(x: box.minX + 6, y: box.minY + 3))
     }
 }
 

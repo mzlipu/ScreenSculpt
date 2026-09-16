@@ -45,6 +45,13 @@ final class CanvasView: NSView {
 
     var anchor: ImagePoint?
     var isDraggingSelection = false
+    /// The corner currently under the pointer while dragging a selection.
+    ///
+    /// The readout follows this rather than the selection's top-left, which is
+    /// the corner the drag *started* from — on a large screenshot that is a long
+    /// way from where the eye is, and a size readout nobody looks at is the same
+    /// as no readout.
+    var selectionCursor: ImagePoint?
     var isPanning = false
     var panOrigin: (mouse: NSPoint, imageOrigin: ImagePoint)?
     var spaceHeld = false

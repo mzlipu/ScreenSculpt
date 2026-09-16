@@ -102,6 +102,7 @@ extension CanvasView {
         let rect = ImageRect(corner: anchor, opposite: current)
             .intersection(ImageRect(size: image.size))
         selection = rect.isEmpty ? nil : rect.integralOutward()
+        selectionCursor = current
         needsDisplay = true
     }
 
@@ -131,6 +132,7 @@ extension CanvasView {
 
         isDraggingSelection = false
         anchor = nil
+        selectionCursor = nil
         onSelectionChanged?(selection)
     }
 
