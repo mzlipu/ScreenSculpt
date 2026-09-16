@@ -223,7 +223,9 @@ struct AdvancedPane: View {
 
             Section("Appearance") {
                 Toggle("Hide the menu bar icon", isOn: binding(Settings.hideMenuBarIcon))
-                Toggle("Show the Dock icon", isOn: binding(Settings.showDockIcon))
+                Picker("Dock icon", selection: binding(Settings.dockIconMode)) {
+                    ForEach(DockIconMode.allCases) { Text($0.label).tag($0) }
+                }
                 Picker("Confirmation", selection: binding(Settings.confirmation)) {
                     ForEach(ConfirmationStyle.allCases) { Text($0.label).tag($0) }
                 }

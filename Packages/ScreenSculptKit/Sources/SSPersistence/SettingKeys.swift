@@ -37,6 +37,25 @@ public enum WindowBackground: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
+/// When the app appears in the Dock.
+///
+/// A capture utility spends most of its life with nothing on screen, and a Dock
+/// icon for an app with no window is a tile that does nothing when clicked. But
+/// once an editor is open there is a real window, and an app with a window and
+/// no Dock icon cannot be reached with Command-Tab — so the presence follows
+/// the windows rather than being fixed either way.
+public enum DockIconMode: String, Sendable, CaseIterable, Identifiable {
+    case automatic, always, never
+    public var id: String { rawValue }
+    public var label: String {
+        switch self {
+        case .automatic: "Only while a window is open"
+        case .always: "Always"
+        case .never: "Never"
+        }
+    }
+}
+
 public enum AfterCapture: String, Sendable, CaseIterable, Identifiable {
     case editor, copyAndSave, copyOnly, saveOnly
     public var id: String { rawValue }
@@ -120,7 +139,9 @@ public enum Settings {
     public static let primaryOCRLanguage = SettingKey("primaryOCRLanguage", default: "en-US")
     public static let ocrRemoveLineBreaks = SettingKey("ocrRemoveLineBreaks", default: false)
     public static let hideMenuBarIcon = SettingKey("hideMenuBarIcon", default: false)
-    public static let showDockIcon = SettingKey("showDockIcon", default: true)
+    public static let dockIconMode = SettingKey(
+        "dockIconMode", default: DockIconMode.automatic
+    )
     public static let confirmation = SettingKey(
         "confirmationStyle", default: ConfirmationStyle.menuBar
     )

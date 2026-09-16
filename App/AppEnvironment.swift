@@ -36,7 +36,7 @@ final class AppEnvironment {
 
     /// Open editors, retained here because NSWindowController does not retain
     /// itself and the window would otherwise vanish immediately.
-    private var editors: [ObjectIdentifier: EditorWindowController] = [:]
+    var editors: [ObjectIdentifier: EditorWindowController] = [:]
 
     init() {}
 
@@ -68,8 +68,7 @@ final class AppEnvironment {
     }
 
     private func applyAppearanceSettings() {
-        // Hiding the Dock icon is a policy change, not a window change.
-        NSApp.setActivationPolicy(settings[Settings.showDockIcon] ? .regular : .accessory)
+        updateDockPresence()
         statusItem?.isVisible = !settings[Settings.hideMenuBarIcon]
     }
 
@@ -78,22 +77,21 @@ final class AppEnvironment {
             settingsWindow = SettingsWindowController(
                 settings: settings, hotKeys: hotKeys, permissions: permissionBridge
             )
+            settingsWindow?.onClose = { [weak self] in
+                // Deferred: the window is still closing, and dropping to
+                // accessory mid-teardown makes it visibly stutter.
+                DispatchQueue.main.async { self?.updateDockPresence() }
+            }
         }
+        updateDockPresence()
         settingsWindow?.present()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func stop() {
         if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
         statusItem = nil
     }
-
-    func showEditor() {
-        // Phase 1 week 2. Until the editor exists, the folder is the useful
-        // thing to open.
-        NSWorkspace.shared.open(Exporter.defaultFolder)
-    }
-
-    // MARK: - Capture actions
 
     @objc func captureFullscreen() {
         let cursor = cursorPolicy
@@ -290,8 +288,16 @@ final class AppEnvironment {
         controller.onStatusMessage = { [weak self] message in
             self?.announce(message, body: message)
         }
-        controller.onClose = { [weak self] in self?.editors[key] = nil }
+        controller.onClose = { [weak self] in
+            self?.editors[key] = nil
+            // Deferred by one turn: the window is still tearing down, and
+            // dropping to accessory mid-teardown makes the close visibly stutter.
+            DispatchQueue.main.async { self?.updateDockPresence() }
+        }
 
+        // Before showing the window, so it opens into an app that already has a
+        // Dock presence rather than acquiring one underneath itself.
+        updateDockPresence()
         controller.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         controller.window?.makeKeyAndOrderFront(nil)

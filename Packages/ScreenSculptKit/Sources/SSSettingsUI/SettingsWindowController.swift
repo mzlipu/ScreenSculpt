@@ -16,6 +16,9 @@ import SwiftUI
 @MainActor
 public final class SettingsWindowController: NSWindowController {
 
+    /// Called when the window closes, so the app can drop its Dock presence.
+    public var onClose: (() -> Void)?
+
     private let settings: SettingsStore
     private let hotKeys: HotKeyCenter
     private let permissions: SettingsPermissionBridge
@@ -42,6 +45,7 @@ public final class SettingsWindowController: NSWindowController {
         window.center()
 
         super.init(window: window)
+        window.delegate = self
     }
 
     @available(*, unavailable)
@@ -53,6 +57,12 @@ public final class SettingsWindowController: NSWindowController {
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
+    }
+}
+
+extension SettingsWindowController: NSWindowDelegate {
+    public func windowWillClose(_ notification: Notification) {
+        onClose?()
     }
 }
 
