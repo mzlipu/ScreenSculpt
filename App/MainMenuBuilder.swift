@@ -38,7 +38,7 @@ enum MainMenuBuilder {
     private static func appMenuItem() -> NSMenuItem {
         let menu = NSMenu()
         menu.addItem(
-            withTitle: "About ScreenSculpt",
+            withTitle: "About Screen Sculpt",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
@@ -48,7 +48,7 @@ enum MainMenuBuilder {
         ))
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: "Hide ScreenSculpt",
+            withTitle: "Hide Screen Sculpt",
             action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"
         )
         let hideOthers = NSMenuItem(
@@ -63,10 +63,10 @@ enum MainMenuBuilder {
         )
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: "Quit ScreenSculpt",
+            withTitle: "Quit Screen Sculpt",
             action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
         )
-        return wrap(menu, title: "ScreenSculpt")
+        return wrap(menu, title: "Screen Sculpt")
     }
 
     private static func captureMenuItem() -> NSMenuItem {
@@ -242,7 +242,7 @@ enum MainMenuBuilder {
 
     private static func helpMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: "Help")
-        menu.addItem(stub("ScreenSculpt Help"))
+        menu.addItem(stub("Screen Sculpt Help"))
         menu.addItem(stub("Keyboard Shortcuts"))
         // Highest-traffic support page for an app in this category.
         menu.addItem(stub("Screen Recording Permission…"))

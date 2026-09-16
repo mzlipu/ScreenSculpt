@@ -35,7 +35,7 @@ public final class SettingsWindowController: NSWindowController {
         let hosting = NSHostingController(rootView: root)
 
         let window = NSWindow(contentViewController: hosting)
-        window.title = "ScreenSculpt Settings"
+        window.title = "Screen Sculpt Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.setContentSize(NSSize(width: 620, height: 560))
         window.isReleasedWhenClosed = false

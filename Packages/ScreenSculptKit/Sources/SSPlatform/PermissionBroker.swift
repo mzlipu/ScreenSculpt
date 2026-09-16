@@ -199,7 +199,7 @@ public final class PermissionBroker {
     ///
     /// Unless both were signed with the same certificate, two copies have two
     /// different signatures, so a grant given to one does nothing for the other
-    /// — while both appear as "ScreenSculpt" in System Settings.
+    /// — while both appear as "Screen Sculpt" in System Settings.
     public func duplicateInstallations() -> [URL] {
         guard let bundleID = Bundle.main.bundleIdentifier else { return [] }
         let all = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: bundleID)
@@ -226,7 +226,7 @@ public final class PermissionBroker {
             return "Granted and working."
 
         case .notDetermined:
-            return "ScreenSculpt has not asked for this yet."
+            return "Screen Sculpt has not asked for this yet."
 
         case .denied:
             return """
@@ -258,7 +258,7 @@ public final class PermissionBroker {
                 """
             let duplicates = duplicateInstallations()
             if !duplicates.isEmpty {
-                text += "\n\nAnother copy of ScreenSculpt is on disk, "
+                text += "\n\nAnother copy of Screen Sculpt is on disk, "
                 text += "which is the likely cause:\n"
                 text += duplicates.map { "  • \($0.path)" }.joined(separator: "\n")
             }

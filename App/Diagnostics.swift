@@ -27,7 +27,7 @@ enum Diagnostics {
     /// Skips the async capture probe, using the broker's last known state
     /// instead, so opening a settings pane never blocks on ScreenCaptureKit.
     static func report(broker: PermissionBroker) -> String {
-        var out = ["ScreenSculpt diagnostics", String(repeating: "=", count: 40), ""]
+        var out = ["Screen Sculpt diagnostics", String(repeating: "=", count: 40), ""]
         out += identitySection()
         out.append("Screen recording: \(broker.screenRecording)")
         out.append("Accessibility:    \(broker.accessibility)")
@@ -37,12 +37,12 @@ enum Diagnostics {
     }
 
     static func runAndExit() async -> Never {
-        var out = ["ScreenSculpt diagnostics", String(repeating: "=", count: 40), ""]
+        var out = ["Screen Sculpt diagnostics", String(repeating: "=", count: 40), ""]
         out += identitySection()
         out += await screenRecordingSection()
         out += trailingSection()
         // Also written to disk, because a diagnostic run from a shell is
-        // attributed to the *terminal* by TCC, not to ScreenSculpt — so the
+        // attributed to the *terminal* by TCC, not to Screen Sculpt — so the
         // permission probes lie unless the app is launched normally. Running
         // `open -n -a ScreenSculpt --args --diagnose` and reading this file is
         // the only way to see what the real app sees.
@@ -110,7 +110,7 @@ enum Diagnostics {
         if isatty(STDOUT_FILENO) != 0 {
             out.append("Launched by: a terminal")
             out.append("  ⚠️  Screen-recording probes are attributed to the terminal, not")
-            out.append("      to ScreenSculpt, so they will under-report. For a true")
+            out.append("      to Screen Sculpt, so they will under-report. For a true")
             out.append("      reading run:")
             out.append("        open -n -a ScreenSculpt --args --diagnose")
             out.append("      then read \(reportURL.path)")

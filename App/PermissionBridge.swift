@@ -45,7 +45,7 @@ final class PermissionBridge: SettingsPermissionBridge {
         case .granted: "Granted and working"
         case .notDetermined: "Not yet requested"
         case .denied: "Denied — enable it in System Settings"
-        case .needsRelaunch: "Granted — reopen ScreenSculpt to apply it"
+        case .needsRelaunch: "Granted — reopen Screen Sculpt to apply it"
         case .staleGrant: "Approved, but recorded against an older build"
         }
     }

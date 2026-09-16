@@ -91,7 +91,7 @@ extension AppEnvironment {
             which needs no permission.
             """
         alert.addButton(withTitle: "I'll Scroll It Myself")
-        alert.addButton(withTitle: "Let ScreenSculpt Scroll")
+        alert.addButton(withTitle: "Let Screen Sculpt Scroll")
         alert.addButton(withTitle: "Cancel")
 
         switch alert.runModal() {
@@ -113,7 +113,7 @@ extension AppEnvironment {
     ///
     /// macOS records a permission against one *copy* of an application, so a
     /// second bundle sharing the identifier gets a separate entry — and the
-    /// Privacy list shows both as plain "ScreenSculpt" with no path to tell
+    /// Privacy list shows both as plain "Screen Sculpt" with no path to tell
     /// them apart. Switching on the wrong one is indistinguishable from
     /// switching on the right one and being ignored, which is a very long way
     /// to chase a problem that a sentence here prevents.
@@ -122,7 +122,7 @@ extension AppEnvironment {
         guard copies.count > 1 else { return true }
 
         let alert = NSAlert()
-        alert.messageText = "There is more than one copy of ScreenSculpt"
+        alert.messageText = "There is more than one copy of Screen Sculpt"
         alert.informativeText = """
             macOS grants permission to a particular copy of an app, and the \
             Accessibility list shows every copy under the same name. Granting \
@@ -156,7 +156,7 @@ extension AppEnvironment {
     /// asked, and the reward is to repeat themselves.
     private func waitForAccessibility() async -> Bool {
         let panel = StatusPanel(title: "Waiting for permission", region: nil)
-        panel.update("Turn on ScreenSculpt in System Settings…")
+        panel.update("Turn on Screen Sculpt in System Settings…")
         panel.show()
 
         let deadline = ContinuousClock.now + .seconds(180)
@@ -182,7 +182,7 @@ extension AppEnvironment {
         // Toggling it off and on keeps the stale record; removing the row
         // discards it, and the next request writes a fresh one.
         let retry = NSAlert()
-        retry.messageText = "ScreenSculpt still does not have Accessibility access"
+        retry.messageText = "Screen Sculpt still does not have Accessibility access"
         retry.informativeText = """
             If the switch is already on, the entry belongs to an older build \
             and no longer matches this one. Turning it off and on again keeps \

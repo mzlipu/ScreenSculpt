@@ -1,4 +1,4 @@
-# Using ScreenSculpt
+# Using Screen Sculpt
 
 > **v0.1.0 — early.** Capture, the editor, nine annotation tools, measurement
 > and colour, text recognition, global shortcuts and settings all work.
@@ -6,7 +6,7 @@
 
 ## Installing
 
-Open `build/ScreenSculpt-0.1.0.dmg` and drag **ScreenSculpt.app** onto the
+Open `build/ScreenSculpt-0.1.0.dmg` and drag **Screen Sculpt.app** onto the
 Applications folder.
 
 **Keep exactly one copy.** Do not leave a second one in Downloads or on the
@@ -18,7 +18,7 @@ back black.
 
 ### 1. It has no window
 
-ScreenSculpt is a **menu bar app**. After opening it, look at the top-right of
+Screen Sculpt is a **menu bar app**. After opening it, look at the top-right of
 your screen for a viewfinder icon:
 
 ```
@@ -35,17 +35,17 @@ apps and try again.
 
 The first time you open it, macOS says:
 
-> **"ScreenSculpt is damaged and can't be opened. You should move it to the
+> **"Screen Sculpt is damaged and can't be opened. You should move it to the
 > Trash."**
 
-It is not damaged. ScreenSculpt is not signed with a paid Apple certificate, and
+It is not damaged. Screen Sculpt is not signed with a paid Apple certificate, and
 macOS shows that exact wording for any unsigned app that arrived through a
 browser. To open it anyway:
 
 1. **System Settings → Privacy & Security**
 2. Scroll down to **Security**
-3. Next to *"ScreenSculpt was blocked from use"*, click **Open Anyway**
-4. Authenticate, then open ScreenSculpt again
+3. Next to *"Screen Sculpt was blocked from use"*, click **Open Anyway**
+4. Authenticate, then open Screen Sculpt again
 
 Once per version, not once per launch.
 
@@ -58,12 +58,12 @@ The first capture will fail and show a dialog. That is expected — macOS gates
 every screen pixel behind this permission and no app can bypass it.
 
 1. Click **Open System Settings** in the dialog
-2. Enable **ScreenSculpt** under Screen & System Audio Recording
-3. **Quit and reopen ScreenSculpt** — the grant only applies to a fresh process
+2. Enable **Screen Sculpt** under Screen & System Audio Recording
+3. **Quit and reopen Screen Sculpt** — the grant only applies to a fresh process
 
 ## Taking a screenshot
 
-Click the menu bar icon and pick one, or use the shortcut while ScreenSculpt is
+Click the menu bar icon and pick one, or use the shortcut while Screen Sculpt is
 frontmost:
 
 | What | Shortcut | What it does |
@@ -183,13 +183,13 @@ cannot move under your marquee.
 
 ### Shortcuts
 
-These work **anywhere**, in any application — they do not need ScreenSculpt to
+These work **anywhere**, in any application — they do not need Screen Sculpt to
 be frontmost. Change them in Settings → Shortcuts.
 
 The defaults deliberately add Control, because macOS reserves `⇧⌘3`, `⇧⌘4` and
-`⇧⌘5` for its own screenshot tool and would win silently if ScreenSculpt
+`⇧⌘5` for its own screenshot tool and would win silently if Screen Sculpt
 registered them. The recorder refuses those, refuses combinations already used
-by another ScreenSculpt command, and refuses anything without `⌘`, `⌃` or `⌥`
+by another Screen Sculpt command, and refuses anything without `⌘`, `⌃` or `⌥`
 (which would otherwise fire while you type).
 
 ## Measuring and colour
@@ -298,9 +298,9 @@ in the menu — it detects this case specifically and will list any duplicate
 copies it finds. The fix:
 
 1. System Settings → Privacy & Security → Screen & System Audio Recording
-2. Select ScreenSculpt, click **−** to remove it
+2. Select Screen Sculpt, click **−** to remove it
 3. Click **+**, add it back from /Applications
-4. Quit and reopen ScreenSculpt
+4. Quit and reopen Screen Sculpt
 
 **The permission disappears after every update.** Fixed, and verified across an
 update. Ad-hoc signing gave a designated requirement of `cdhash H"..."` which
@@ -311,7 +311,7 @@ every build picks it up.
 
 **`--diagnose` says permission is denied, but the app works.** Expected. TCC
 attributes a permission request to the "responsible process", which for a binary
-started from a shell is your *terminal*, not ScreenSculpt. The report says so
+started from a shell is your *terminal*, not Screen Sculpt. The report says so
 when it detects a tty. For a true reading:
 
 ```bash
@@ -321,10 +321,10 @@ cat ~/Library/Logs/ScreenSculpt-diagnostics.txt
 
 **It asks for permission even though Settings shows it enabled.** macOS applies a
 screen-recording grant only when an app *starts*. If you approved it while
-ScreenSculpt was already running, the running process still cannot capture. Quit
-and reopen — ScreenSculpt detects this case and offers a **Relaunch** button.
+Screen Sculpt was already running, the running process still cannot capture. Quit
+and reopen — Screen Sculpt detects this case and offers a **Relaunch** button.
 
-**Nothing happens when I press the shortcut.** Either ScreenSculpt isn't
+**Nothing happens when I press the shortcut.** Either Screen Sculpt isn't
 frontmost (see above), or another app owns that combination. Use the menu.
 
 **I can't find the app after installing.** It is in the menu bar, not the Dock,

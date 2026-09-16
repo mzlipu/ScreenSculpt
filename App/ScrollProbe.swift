@@ -34,7 +34,7 @@ enum ScrollProbe {
     }
 
     static func runAndExit() async -> Never {
-        var out = ["ScreenSculpt scrolling-capture probe", String(repeating: "=", count: 44), ""]
+        var out = ["Screen Sculpt scrolling-capture probe", String(repeating: "=", count: 44), ""]
         out += await probe()
         let text = out.joined(separator: "\n")
         print(text)

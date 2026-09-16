@@ -1,6 +1,6 @@
 <div align="center">
 
-# ScreenSculpt
+# Screen Sculpt
 
 **A fast, native macOS screenshot tool for people who care about pixels.**
 
@@ -17,7 +17,7 @@ pixel. Read a colour and check its contrast. Pull text out of anything on screen
 > disk and the clipboard work. The editor, annotation tools, measurement, OCR and
 > scrolling capture do not exist yet — see [the roadmap](#roadmap).
 >
-> **ScreenSculpt is a menu bar app with no window.** After launching it, look for
+> **Screen Sculpt is a menu bar app with no window.** After launching it, look for
 > the viewfinder icon at the top-right of your screen. See
 > [docs/USAGE.md](docs/USAGE.md).
 
@@ -30,7 +30,7 @@ scroll a long page into a single image, cannot tell you the distance between two
 elements, cannot read a colour or check its contrast ratio, and cannot pull text
 out of a picture.
 
-Those four things are what ScreenSculpt is for. Everything else it does exists to
+Those four things are what Screen Sculpt is for. Everything else it does exists to
 support them.
 
 ## Requirements
@@ -48,18 +48,18 @@ only capture path available, and its screenshot API starts at 14.0.
 > `.dmg` right now: `make dmg`, which writes `build/ScreenSculpt-<version>.dmg`.
 > Full walkthrough in [docs/USAGE.md](docs/USAGE.md).
 
-ScreenSculpt is **not signed with a paid Apple certificate**. That is a
+Screen Sculpt is **not signed with a paid Apple certificate**. That is a
 deliberate trade — the project has no revenue and an Apple Developer membership
 costs $99/yr — and it has two honest consequences you should know about before
 installing:
 
-1. **A browser download will be blocked by Gatekeeper** with "ScreenSculpt is
+1. **A browser download will be blocked by Gatekeeper** with "Screen Sculpt is
    damaged and can't be opened." It isn't damaged; macOS says that for anything
    unsigned that arrives with a quarantine flag. The fix is System Settings →
    Privacy & Security → **Open Anyway**.
 2. **After enabling Screen Recording you must reopen the app.** macOS applies
-   that grant only when a process starts, so approving it while ScreenSculpt is
-   running changes nothing until you restart. ScreenSculpt detects this exact
+   that grant only when a process starts, so approving it while Screen Sculpt is
+   running changes nothing until you restart. Screen Sculpt detects this exact
    case and offers a Relaunch button.
 
    The grant itself now *persists* across updates: builds are signed with a
@@ -94,7 +94,7 @@ shasum -a 256 ScreenSculpt-1.0.0.dmg
 
 ## Permissions
 
-ScreenSculpt asks for two things, and never at launch — only the first time you
+Screen Sculpt asks for two things, and never at launch — only the first time you
 use a feature that needs them.
 
 | Permission | Needed for | Notes |

@@ -16,7 +16,7 @@ extension AppEnvironment {
     func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = NSImage(
-            systemSymbolName: "viewfinder", accessibilityDescription: "ScreenSculpt"
+            systemSymbolName: "viewfinder", accessibilityDescription: "Screen Sculpt"
         )
         item.button?.image?.isTemplate = true
         item.menu = buildMenu()
@@ -76,13 +76,13 @@ extension AppEnvironment {
         menu.addItem(.separator())
 
         let version = NSMenuItem(
-            title: "ScreenSculpt \(Self.versionString)", action: nil, keyEquivalent: ""
+            title: "Screen Sculpt \(Self.versionString)", action: nil, keyEquivalent: ""
         )
         version.isEnabled = false
         menu.addItem(version)
 
         menu.addItem(NSMenuItem(
-            title: "Quit ScreenSculpt",
+            title: "Quit Screen Sculpt",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ))
@@ -117,7 +117,7 @@ extension AppEnvironment {
                 \(Exporter.defaultFolder.path)
                 """
             alert.addButton(withTitle: "Open System Settings")
-            alert.addButton(withTitle: "Relaunch ScreenSculpt")
+            alert.addButton(withTitle: "Relaunch Screen Sculpt")
             alert.addButton(withTitle: "Done")
             NSApp.activate(ignoringOtherApps: true)
             switch alert.runModal() {
@@ -133,7 +133,7 @@ extension AppEnvironment {
         case .granted: "granted"
         case .denied: "denied"
         case .notDetermined: "not yet requested"
-        case .needsRelaunch: "granted — reopen ScreenSculpt to apply it"
+        case .needsRelaunch: "granted — reopen Screen Sculpt to apply it"
         case .staleGrant: "approved, but recorded against an older build"
         }
     }
