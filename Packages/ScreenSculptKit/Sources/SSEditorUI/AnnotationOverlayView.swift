@@ -41,6 +41,7 @@ final class AnnotationOverlayView: NSView {
             baseImage: baseImage,
             in: context,
             pixelScale: pixelScale,
+            imageBounds: baseImage.imageBounds,
             skipping: suppressed.map { [$0] } ?? []
         )
 
@@ -77,7 +78,8 @@ final class DragScrimView: NSView {
         var single = OrderedAnnotations()
         single.append(annotation)
         AnnotationRendererBridge.draw(
-            single, baseImage: baseImage, in: context, pixelScale: pixelScale
+            single, baseImage: baseImage, in: context, pixelScale: pixelScale,
+            imageBounds: baseImage.imageBounds
         )
 
         context.restoreGState()
@@ -91,14 +93,28 @@ private enum AnnotationRendererBridge {
         baseImage: CGImage?,
         in context: CGContext,
         pixelScale: PixelScale,
+        imageBounds: ImageRect,
         skipping excluded: Set<AnnotationID> = []
     ) {
         AnnotationRenderer.draw(
             annotations,
             baseImage: baseImage,
             in: context,
-            render: RenderContext(pixelScale: pixelScale, isExport: false),
+            render: RenderContext(
+                pixelScale: pixelScale, isExport: false, imageBounds: imageBounds
+            ),
             skipping: excluded
+        )
+    }
+}
+
+extension Optional where Wrapped == CGImage {
+    /// The canvas extent, which a spotlight needs to know how far to dim.
+    var imageBounds: ImageRect {
+        guard let self else { return .zero }
+        return ImageRect(
+            x: .zero, y: .zero,
+            width: ImagePx(Double(self.width)), height: ImagePx(Double(self.height))
         )
     }
 }

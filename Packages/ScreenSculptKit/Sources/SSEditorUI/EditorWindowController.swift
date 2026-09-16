@@ -30,7 +30,7 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
 
     let store: DocumentStore
     private let canvas: CanvasView
-    private let tools: ToolController
+    let tools: ToolController
     private let measurement: MeasurementController
     private var zoomLabel: NSToolbarItem?
     private var statusField: NSTextField?
@@ -136,6 +136,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     @objc public func toolHighlighter() { chooseTool(.highlighter) }
     @objc public func toolCounter() { chooseTool(.counter) }
     @objc public func toolConceal() { chooseTool(.conceal) }
+    @objc public func toolSpotlight() { chooseTool(.spotlight) }
+    @objc public func toolMagnifier() { chooseTool(.magnifier) }
+    @objc public func toolRuler() { chooseTool(.ruler) }
     @objc public func toolSelect() { chooseTool(nil) }
 
     // MARK: - Measurement

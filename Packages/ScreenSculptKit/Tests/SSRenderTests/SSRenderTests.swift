@@ -93,12 +93,44 @@ nonisolated private func everyBody() -> [(AnnotationKind, AnyAnnotationBody)] {
         (.conceal, .conceal(ConcealBody(
             rect: ImageRect(x: 40, y: 40, width: 100, height: 100), mode: .pixelate
         ))),
+        (.spotlight, .spotlight(SpotlightBody(
+            rect: ImageRect(x: 60, y: 60, width: 80, height: 80)
+        ))),
+        (.magnifier, .magnifier(MagnifierBody(
+            rect: ImageRect(x: 40, y: 40, width: 100, height: 100)
+        ))),
+        (.ruler, .ruler(RulerBody(start: point(20, 100), end: point(180, 130)))),
+        (.imageOverlay, .imageOverlay(swatchOverlay())),
     ]
+}
+
+/// A small solid image, encoded the way a placed overlay stores its bytes.
+nonisolated private func swatchOverlay() -> ImageOverlayBody {
+    let context = CGContext(
+        data: nil, width: 40, height: 30, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 0.1, green: 0.8, blue: 0.3, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 40, height: 30))
+    return ImageOverlayBody.make(
+        from: context.makeImage()!, at: ImageRect(x: 40, y: 40, width: 100, height: 75)
+    )!
 }
 
 @Suite("Flatten renders every tool")
 @MainActor
 struct FlattenTests {
+
+    /// Guards the fixture itself. Both tests below iterate a hand-written list,
+    /// so a tool left out of it is a tool with no rendering coverage at all —
+    /// and that omission looks exactly like passing.
+    @Test("The fixture covers every tool that exists")
+    func fixtureIsComplete() {
+        let covered = Set(everyBody().map(\.0))
+        let missing = AnnotationKind.allCases.filter { !covered.contains($0) }
+        #expect(missing.isEmpty, "no render coverage for \(missing.map(\.label))")
+    }
 
     /// The regression this whole file exists for: a tool that silently draws
     /// nothing looks exactly like a tool that works, until someone tries it.
@@ -138,7 +170,13 @@ struct FlattenTests {
             store.annotations,
             baseImage: base.cgImage,
             in: context,
-            render: RenderContext(pixelScale: .x1, isExport: false)
+            render: RenderContext(
+                pixelScale: .x1, isExport: false,
+                imageBounds: ImageRect(
+                    x: .zero, y: .zero,
+                    width: ImagePx(Double(width)), height: ImagePx(Double(height))
+                )
+            )
         )
 
         let rendered = RasterImage(cgImage: context.makeImage()!, pixelScale: .x1)

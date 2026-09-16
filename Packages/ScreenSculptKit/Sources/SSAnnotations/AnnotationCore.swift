@@ -14,6 +14,7 @@ public struct AnnotationID: Hashable, Codable, Sendable {
 
 public enum AnnotationKind: String, Codable, Sendable, CaseIterable, Identifiable {
     case arrow, line, rectangle, oval, text, freehand, highlighter, counter, conceal
+    case spotlight, magnifier, ruler, imageOverlay
 
     public var id: String { rawValue }
 
@@ -28,6 +29,10 @@ public enum AnnotationKind: String, Codable, Sendable, CaseIterable, Identifiabl
         case .highlighter: "Highlighter"
         case .counter: "Counter"
         case .conceal: "Blur"
+        case .spotlight: "Spotlight"
+        case .magnifier: "Magnifier"
+        case .ruler: "Ruler"
+        case .imageOverlay: "Image"
         }
     }
 
@@ -43,6 +48,10 @@ public enum AnnotationKind: String, Codable, Sendable, CaseIterable, Identifiabl
         case .highlighter: "highlighter"
         case .counter: "1.circle"
         case .conceal: "drop.fill"
+        case .spotlight: "light.beacon.max"
+        case .magnifier: "magnifyingglass.circle"
+        case .ruler: "ruler"
+        case .imageOverlay: "photo"
         }
     }
 
@@ -57,6 +66,10 @@ public enum AnnotationKind: String, Codable, Sendable, CaseIterable, Identifiabl
         case .highlighter: "h"
         case .counter: "n"
         case .conceal: "b"
+        case .spotlight: "s"
+        case .magnifier: "m"
+        case .ruler: "u"
+        case .imageOverlay: "i"
         }
     }
 }

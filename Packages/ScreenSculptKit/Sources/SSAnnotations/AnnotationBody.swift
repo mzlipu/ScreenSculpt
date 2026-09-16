@@ -12,10 +12,14 @@ public struct RenderContext: Sendable {
     /// True when rendering for export — suppresses anything that is editing
     /// affordance rather than content.
     public let isExport: Bool
+    /// The whole canvas. A spotlight dims everything outside itself, so it has
+    /// to know where "everything" ends; bodies cannot otherwise see it.
+    public let imageBounds: ImageRect
 
-    public init(pixelScale: PixelScale, isExport: Bool) {
+    public init(pixelScale: PixelScale, isExport: Bool, imageBounds: ImageRect = .zero) {
         self.pixelScale = pixelScale
         self.isExport = isExport
+        self.imageBounds = imageBounds
     }
 }
 
