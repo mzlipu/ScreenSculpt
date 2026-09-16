@@ -83,7 +83,7 @@ public enum CaptureError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            "ScreenSculpt needs permission to record the screen."
+            "Screen Sculpt needs permission to record the screen."
         case .permissionStale:
             """
             macOS lists ScreenSculpt as approved but is not honouring it. \

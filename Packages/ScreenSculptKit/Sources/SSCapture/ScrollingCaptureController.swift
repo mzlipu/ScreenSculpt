@@ -19,7 +19,7 @@ public enum ScrollingCaptureError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .accessibilityRequired:
-            "Scrolling capture needs Accessibility access so ScreenSculpt can scroll the window "
+            "Scrolling capture needs Accessibility access so Screen Sculpt can scroll the window "
                 + "for you."
         case .regionTooSmall:
             "Choose a taller region — there is not enough overlap between frames to line them up."

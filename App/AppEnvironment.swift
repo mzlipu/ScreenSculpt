@@ -208,7 +208,7 @@ final class AppEnvironment {
     private func promptToMoveIfTranslocated() {
         guard permissions.isTranslocated else { return }
         let alert = NSAlert()
-        alert.messageText = "Move ScreenSculpt to Applications"
+        alert.messageText = "Move Screen Sculpt to Applications"
         alert.informativeText = """
             ScreenSculpt is running from a temporary location, so its settings \
             may not persist and it cannot update itself.

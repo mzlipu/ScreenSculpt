@@ -31,7 +31,7 @@ enum PermissionPresenter {
                 return true
             }
             present(permissions,
-                title: "ScreenSculpt needs permission to record the screen",
+                title: "Screen Sculpt needs permission to record the screen",
                 body: """
                     Enable ScreenSculpt in System Settings → Privacy & Security \
                     → Screen & System Audio Recording.
@@ -47,7 +47,7 @@ enum PermissionPresenter {
             // The common case: approved while the app was already running.
             // Another prompt would achieve nothing; a restart is the fix.
             present(permissions,
-                title: "Almost there — ScreenSculpt needs to restart",
+                title: "Almost there — Screen Sculpt needs to restart",
                 body: permissions.advice(for: .screenRecording),
                 offerRelaunch: true,
                 relaunchIsPrimary: true
@@ -87,11 +87,11 @@ enum PermissionPresenter {
         // The first button is the default, so it should be whichever action
         // actually resolves the situation.
         if relaunchIsPrimary {
-            alert.addButton(withTitle: "Relaunch ScreenSculpt")
+            alert.addButton(withTitle: "Relaunch Screen Sculpt")
             alert.addButton(withTitle: "Open System Settings")
         } else {
             alert.addButton(withTitle: "Open System Settings")
-            if offerRelaunch { alert.addButton(withTitle: "Relaunch ScreenSculpt") }
+            if offerRelaunch { alert.addButton(withTitle: "Relaunch Screen Sculpt") }
         }
         alert.addButton(withTitle: "Later")
 

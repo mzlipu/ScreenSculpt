@@ -54,8 +54,11 @@ targets:
     info:
       path: App/Resources/Info.plist
       properties:
-        CFBundleName: ScreenSculpt
-        CFBundleDisplayName: ScreenSculpt
+        # Displayed name carries the space; the identifier, the executable
+        # and the bundle filename stay closed up so paths and shell
+        # commands need no quoting.
+        CFBundleName: Screen Sculpt
+        CFBundleDisplayName: Screen Sculpt
         CFBundleIdentifier: app.screensculpt.ScreenSculpt
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"

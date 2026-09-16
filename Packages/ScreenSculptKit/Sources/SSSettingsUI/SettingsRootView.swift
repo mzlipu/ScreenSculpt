@@ -108,7 +108,7 @@ struct GeneralPane: View {
             }
 
             Section("Startup") {
-                Toggle("Open ScreenSculpt at login", isOn: binding(Settings.launchAtLogin))
+                Toggle("Open Screen Sculpt at login", isOn: binding(Settings.launchAtLogin))
                 Picker("Mouse pointer", selection: binding(Settings.cursor)) {
                     ForEach(CursorSetting.allCases) { Text($0.label).tag($0) }
                 }
@@ -232,7 +232,7 @@ struct AdvancedPane: View {
             Section("Automation") {
                 Toggle("Allow screensculpt:// links", isOn: binding(Settings.urlSchemeEnabled))
                 Text("Lets Raycast, Alfred and Shortcuts trigger captures. Off by default, "
-                     + "because any application on this Mac could then drive ScreenSculpt.")
+                     + "because any application on this Mac could then drive Screen Sculpt.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

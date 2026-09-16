@@ -28,7 +28,7 @@ public enum HotKeyID: String, Sendable, CaseIterable, Identifiable, Codable {
         case .captureRepeat: "Repeat last area"
         case .captureDelayed: "Delayed capture"
         case .recogniseText: "Recognise text (OCR)"
-        case .showApp: "Show ScreenSculpt"
+        case .showApp: "Show Screen Sculpt"
         }
     }
 

@@ -29,7 +29,7 @@ struct PermissionsPane: View {
                     Button("Open System Settings") {
                         permissions.openScreenRecordingSettings()
                     }
-                    Button("Relaunch ScreenSculpt") { permissions.relaunch() }
+                    Button("Relaunch Screen Sculpt") { permissions.relaunch() }
                         .help("macOS applies this permission only when an app starts.")
                 }
             }
@@ -46,7 +46,7 @@ struct PermissionsPane: View {
 
             Section("Diagnostics") {
                 Text("Reports what this build can actually see, including every copy of "
-                     + "ScreenSculpt on disk. Worth attaching to a bug report.")
+                     + "Screen Sculpt on disk. Worth attaching to a bug report.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
