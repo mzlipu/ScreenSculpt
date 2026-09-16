@@ -13,6 +13,7 @@ import SSImaging
 import SSPersistence
 import SSPlatform
 import SSRecognition
+import SSRecognitionUI
 import SSSettingsUI
 
 /// Composition root — the only place services are constructed and wired.
@@ -28,6 +29,7 @@ final class AppEnvironment {
     lazy var hotKeys = HotKeyCenter(settings: settings)
     private lazy var permissionBridge = PermissionBridge(broker: permissions)
     var settingsWindow: SettingsWindowController?
+    var textResultWindow: TextResultWindowController?
 
     var statusItem: NSStatusItem?
     var isCapturing = false
@@ -245,14 +247,16 @@ final class AppEnvironment {
                     removeLineBreaks: settings[Settings.ocrRemoveLineBreaks]
                 )
                 let result = try recognizer.recognize(in: selection.image)
+                // Copied first, always. The window is for checking the result,
+                // not for obtaining it — hotkey to paste has to keep working
+                // without a window in the way.
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.plainText, forType: .string)
 
                 let lines = result.plainText.split(separator: "\n").count
-                announce(
-                    "Text copied",
-                    body: lines == 1 ? "1 line" : "\(lines) lines"
-                )
+                announce("Text copied", body: lines == 1 ? "1 line" : "\(lines) lines")
+
+                if settings[Settings.showRecognisedText] { showRecognisedText(result) }
             } catch {
                 announce("No text found", body: error.localizedDescription)
             }

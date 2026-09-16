@@ -109,6 +109,10 @@ struct GeneralPane: View {
 
             Section("Startup") {
                 Toggle("Open Screen Sculpt at login", isOn: binding(Settings.launchAtLogin))
+                Toggle(
+                    "Show recognised text in a window",
+                    isOn: binding(Settings.showRecognisedText)
+                )
                 Picker("Mouse pointer", selection: binding(Settings.cursor)) {
                     ForEach(CursorSetting.allCases) { Text($0.label).tag($0) }
                 }

@@ -37,6 +37,7 @@ extension AppEnvironment {
 
     private var hasVisibleWindow: Bool {
         if !editors.isEmpty { return true }
+        if textResultWindow?.window?.isVisible == true { return true }
         return settingsWindow?.window?.isVisible ?? false
     }
 

@@ -52,6 +52,7 @@ let package = Package(
             "SSEditorUI", "SSCaptureUI", "SSSettingsUI", "SSStatusUI",
         ]),
         .library(name: "SSGeometry", targets: ["SSGeometry"]),
+        .library(name: "SSRecognitionUI", targets: ["SSRecognitionUI"]),
         .library(name: "SSStitch", targets: ["SSStitch"]),
         .library(name: "SSMeasure", targets: ["SSMeasure"]),
         .library(name: "SSRender", targets: ["SSRender"]),
@@ -158,8 +159,13 @@ let package = Package(
             name: "SSEditorUI",
             dependencies: [
                 "SSAnnotations", "SSDocument", "SSRender", "SSMeasure",
-                "SSRecognition", "SSExport", "SSPlatform", "SSCapture",
+                "SSRecognition", "SSRecognitionUI", "SSExport", "SSPlatform", "SSCapture",
             ],
+            swiftSettings: uiSettings
+        ),
+        .target(
+            name: "SSRecognitionUI",
+            dependencies: ["SSRecognition"],
             swiftSettings: uiSettings
         ),
         .target(
