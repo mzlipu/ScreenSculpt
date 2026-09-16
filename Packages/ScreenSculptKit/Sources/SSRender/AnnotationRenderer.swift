@@ -172,6 +172,9 @@ public enum AnnotationRenderer {
         )
 
         guard let output = context.makeImage() else { return base }
+        // No backdrop pass here: `render()` has already applied it, so the base
+        // this drew onto is the padded canvas. Applying it again would frame
+        // the frame.
         return RasterImage(cgImage: output, pixelScale: base.pixelScale)
     }
 }

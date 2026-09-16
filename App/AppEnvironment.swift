@@ -292,6 +292,7 @@ final class AppEnvironment {
         controller.onStatusMessage = { [weak self] message in
             self?.announce(message, body: message)
         }
+        wireAppendRequest(on: controller)
         controller.onClose = { [weak self] in
             self?.editors[key] = nil
             // Deferred by one turn: the window is still tearing down, and
