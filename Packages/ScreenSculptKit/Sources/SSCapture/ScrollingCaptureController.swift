@@ -13,6 +13,7 @@ public enum ScrollingCaptureError: Error, LocalizedError {
     case accessibilityRequired
     case regionTooSmall
     case noContentCaptured
+    case pageDidNotScroll(String)
     case stalled(String)
 
     public var errorDescription: String? {
@@ -24,6 +25,8 @@ public enum ScrollingCaptureError: Error, LocalizedError {
             "Choose a taller region — there is not enough overlap between frames to line them up."
         case .noContentCaptured:
             "Nothing was captured."
+        case .pageDidNotScroll(let detail):
+            "The page did not scroll. \(detail)"
         case .stalled(let detail):
             detail
         }
@@ -68,12 +71,23 @@ public final class ScrollingCaptureController {
         public let rows: Int
     }
 
-    private let captureService: any CaptureService
-    private let driver = ScrollDriver()
+    let captureService: any CaptureService
+    let driver = ScrollDriver()
     /// Retained after `capture` so the assembled pixels can still be read.
     /// The canvas is a file-backed window, not a bitmap, so this holds a
     /// mapping and a descriptor rather than the image.
     private var session: StitchSession?
+    /// Where the pointer was before a hardware-level scroll moved it.
+    var cursorToRestore: CGPoint?
+    /// Set when probing found the page moves, but only towards its start.
+    var movedBackwardsOnly = false
+
+    /// Receives a line per calibration attempt.
+    ///
+    /// Which way a window scrolls, and whether it listens at all, is a property
+    /// of that window — so when a capture fails the useful question is what was
+    /// tried and what each attempt saw. Nothing else can reconstruct that.
+    public var trace: (@MainActor (String) -> Void)?
 
     public init(captureService: any CaptureService) {
         self.captureService = captureService
@@ -89,70 +103,79 @@ public final class ScrollingCaptureController {
     ) async throws -> StitchResult {
         guard AXIsProcessTrusted() else { throw ScrollingCaptureError.accessibilityRequired }
         guard area.height.value >= 200 else { throw ScrollingCaptureError.regionTooSmall }
+        defer { restoreCursor() }
 
-        let centre = CGPoint(
-            x: area.midX.value, y: area.midY.value
-        )
-        let target: ScrollDriver.Target = WindowLocator.processOwningWindow(at: centre)
-            .map { .process($0) } ?? .systemWide
+        let centre = CGPoint(x: area.midX.value, y: area.midY.value)
+        let owner = WindowLocator.windowOwner(at: centre)
 
-        let first = try await captureService.capture(CaptureRequest(mode: .area(area)))
-        let scale = first.provenance.pixelScale
+        let scale = try await captureService
+            .capture(CaptureRequest(mode: .area(area))).provenance.pixelScale
+        // Let anything already in motion finish before measuring. Otherwise the
+        // first calibration attempt is credited with movement it did not cause.
+        let opening = try await waitUntilStill(area: area, options: options)
 
         // Scroll a fixed fraction of the band so consecutive frames always
         // overlap. Commanded in points; the stitcher measures in pixels.
         let stepPoints = Int(area.height.value * (1 - options.overlapFraction))
+
+        // Establish how this window scrolls before the first frame is kept.
+        // Calibration moves the page and puts it back, so the frame the capture
+        // opens with has to be taken afterwards — one taken before would be a
+        // view of a position the page is no longer at.
+        let probe = Probe(
+            area: area, centre: centre, owner: owner,
+            step: stepPoints, first: opening
+        )
+        guard let working = try await findWorkingScroll(probe, options: options) else {
+            throw ScrollingCaptureError.pageDidNotScroll(describe(owner))
+        }
+
+        let first = try await waitUntilStill(area: area, options: options)
         var configuration = StitchConfiguration()
         configuration.expectedStep = Int(scale.pixels(LogicalPt(Double(stepPoints))).value)
-
         let session = try StitchSession(
-            firstFrame: first.image.cgImage, pixelScale: scale, configuration: configuration
+            firstFrame: first.cgImage, pixelScale: scale, configuration: configuration
         )
         self.session = session
+        var settled = first
 
-        // Which sign moves further down the document is not knowable up front —
-        // it depends on the application, and synthesised events do not go
-        // through the system's natural-scrolling flip. So try one direction and
-        // reverse if the page did not move.
-        var direction = -1
-        var reversed = false
-        var settled = first.image
-
-        for index in 1...options.maximumFrames {
-            driver.scroll(deltaY: direction * stepPoints, at: centre, to: target)
+        var reachedEnd = false
+        for index in 1...max(2, options.maximumFrames) {
+            await scroll(working.method, deltaY: working.direction * stepPoints, at: centre)
 
             guard let frame = try await waitForSettledFrame(
                 area: area, previous: settled, options: options
-            ) else {
-                if index == 1, !reversed {
-                    reversed = true
-                    direction = 1
-                    continue
-                }
-                break       // the page stopped moving: the end of the content
-            }
+            ) else { break }       // the page stopped moving: the end of the content
 
             switch session.add(frame.cgImage) {
             case .buffered, .appended:
                 settled = frame
-                onProgress(Progress(frames: index, rows: session.canvas.filledRows))
+                onProgress(Progress(frames: index + 1, rows: session.canvas.filledRows))
             case .reachedEnd:
-                if index == 1, !reversed {
-                    reversed = true
-                    direction = 1
-                    continue
-                }
-                return session.finish()
+                // Leaves by the shared exit below rather than returning here.
+                // Returning directly skipped the one-frame check, so a capture
+                // that reached the end on its first step handed back a single
+                // screenful as though it had worked.
+                reachedEnd = true
             case .unreliable(let reason):
                 session.note("Stopped early: \(reason)")
                 let partial = session.finish()
                 guard partial.frameCount > 1 else { throw ScrollingCaptureError.stalled(reason) }
                 return partial
             }
+            if reachedEnd { break }
         }
 
         let result = session.finish()
         guard !result.isEmpty else { throw ScrollingCaptureError.noContentCaptured }
+        guard result.frameCount > 1 else {
+            // One frame is an ordinary screenshot. Returning it as though the
+            // capture had worked is the worst outcome available — it looks like
+            // success and silently is not.
+            throw ScrollingCaptureError.pageDidNotScroll(
+                "Only the first screenful could be captured before the page stopped moving."
+            )
+        }
         return result
     }
 
@@ -261,11 +284,34 @@ public final class ScrollingCaptureController {
         try session.writePNG(to: url)
     }
 
+    /// Capture until the page is at rest, and return that frame.
+    ///
+    /// Distinct from `waitForSettledFrame`, which asks whether the page has
+    /// moved *somewhere new*. This asks only whether it has stopped, and the
+    /// difference matters before a measurement: a page still coasting from an
+    /// earlier scroll keeps changing on its own, so an attempt that did nothing
+    /// registers as having worked.
+    func waitUntilStill(area: ScreenRect, options: Options) async throws -> RasterImage {
+        var last: GrayFrame?
+        var lastImage = try await captureService.capture(CaptureRequest(mode: .area(area))).image
+        let deadline = ContinuousClock.now + options.settleTimeout
+
+        while ContinuousClock.now < deadline {
+            try await Task.sleep(for: options.settleInterval)
+            let shot = try await captureService.capture(CaptureRequest(mode: .area(area)))
+            lastImage = shot.image
+            guard let gray = GrayFrame(shot.image.cgImage) else { continue }
+            if let last, last.matches(gray) { return shot.image }
+            last = gray
+        }
+        return lastImage
+    }
+
     /// Capture until the page stops changing, then return that frame.
     ///
     /// Returns nil when the page never differed from the previous frame, which
     /// is how reaching the bottom announces itself.
-    private func waitForSettledFrame(
+    func waitForSettledFrame(
         area: ScreenRect, previous: RasterImage, options: Options
     ) async throws -> RasterImage? {
         let deadline = ContinuousClock.now + options.settleTimeout
