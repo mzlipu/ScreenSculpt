@@ -36,7 +36,9 @@ enum ScreenSculptMain {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
-        app.setActivationPolicy(.regular)
+        // Start as a menu bar app. AppEnvironment raises this to .regular the
+        // moment a window opens, and drops it again when the last one closes.
+        app.setActivationPolicy(.accessory)
         app.run()
     }
 }
