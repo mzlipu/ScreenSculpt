@@ -63,6 +63,12 @@ install: dmg ## Build and install into /Applications, then relaunch
 	@echo "installed to /Applications"
 	@open /Applications/ScreenSculpt.app
 
+icon: ## Redraw the app icon and menu bar template from scripts/make-appicon.swift
+	@swiftc -O scripts/make-appicon.swift -o /tmp/ss-make-appicon
+	@/tmp/ss-make-appicon Assets/brand
+	@iconutil -c icns Assets/brand/AppIcon.iconset -o Assets/brand/AppIcon.icns
+	@echo "icon written to Assets/brand"
+
 dmg: ## Build a distributable .dmg (Release, universal, ad-hoc signed)
 	@mkdir -p build
 	./scripts/make-dmg.sh
