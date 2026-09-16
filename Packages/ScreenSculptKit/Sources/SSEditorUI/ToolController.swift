@@ -125,6 +125,17 @@ final class ToolController {
             ))
         case .conceal:
             .conceal(ConcealBody(rect: ImageRect(corner: point, opposite: point)))
+        case .spotlight:
+            .spotlight(SpotlightBody(rect: ImageRect(corner: point, opposite: point)))
+        case .magnifier:
+            .magnifier(MagnifierBody(rect: ImageRect(corner: point, opposite: point)))
+        case .ruler: .ruler(RulerBody(start: point, end: point))
+        case .imageOverlay:
+            // Placed from a file or the clipboard rather than drawn, so there
+            // is nothing sensible to create from a bare click.
+            .imageOverlay(ImageOverlayBody(
+                rect: ImageRect(corner: point, opposite: point), data: Data(), naturalAspect: 1
+            ))
         }
 
         store.add(body, style: style)
@@ -195,6 +206,22 @@ final class ToolController {
         case .conceal(var conceal):
             conceal.rect = Draw2.box(from: anchor, to: point, square: constrain)
             return .conceal(conceal)
+        case .spotlight(var spotlight):
+            spotlight.rect = Draw2.box(from: anchor, to: point, square: constrain)
+            return .spotlight(spotlight)
+        case .magnifier(var magnifier):
+            // Square unless Shift says otherwise — a circular lens with
+            // unequal axes would magnify them differently.
+            magnifier.rect = Draw2.box(
+                from: anchor, to: point, square: magnifier.isCircular || constrain
+            )
+            return .magnifier(magnifier)
+        case .ruler(var ruler):
+            ruler.end = constrain ? Draw2.constrain(point, from: anchor) : point
+            return .ruler(ruler)
+        case .imageOverlay(var overlay):
+            overlay.rect = Draw2.box(from: anchor, to: point, square: constrain)
+            return .imageOverlay(overlay)
         case .freehand:
             freehandPoints.append(point)
             return .freehand(FreehandBody(points: freehandPoints))

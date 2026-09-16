@@ -3,6 +3,7 @@
 
 import CoreGraphics
 import Foundation
+import ImageIO
 import SSAnnotations
 import SSDocument
 import SSGeometry
@@ -32,21 +33,60 @@ public enum AnnotationRenderer {
         for annotation in annotations.all where !excluded.contains(annotation.id) {
             context.saveGState()
 
+            // Three kinds need pixels a body never sees: a blur reads what is
+            // underneath, a magnifier repeats it larger, and an overlay carries
+            // encoded bytes too costly to decode in a draw call. Each is drawn
+            // here first, then the body adds its own outline on top.
             if let conceal = annotation.body.concealBody, let baseImage {
                 drawConceal(conceal, baseImage: baseImage, in: context)
-                // Still draw the body so the dashed editing outline appears on
-                // screen; it suppresses itself on export.
-                annotation.body.draw(
-                    in: context, style: annotation.style, render: render
-                )
-            } else {
-                annotation.body.draw(
-                    in: context, style: annotation.style, render: render
-                )
+            } else if let magnifier = annotation.body.magnifierBody, let baseImage {
+                drawMagnifier(magnifier, baseImage: baseImage, in: context)
+            } else if let overlay = annotation.body.imageOverlayBody {
+                drawOverlay(overlay, opacity: annotation.style.opacity, in: context)
             }
+            annotation.body.draw(in: context, style: annotation.style, render: render)
 
             context.restoreGState()
         }
+    }
+
+    /// Enlarge the region under a loupe.
+    private static func drawMagnifier(
+        _ body: MagnifierBody, baseImage: CGImage, in context: CGContext
+    ) {
+        guard let patch = MagnifierRenderer.patch(for: body, in: baseImage) else { return }
+        context.saveGState()
+        // Clipped to the lens, so the enlargement cannot spill past its rim.
+        if patch.isCircular {
+            context.addEllipse(in: patch.rect)
+        } else {
+            context.addPath(CGPath(
+                roundedRect: patch.rect, cornerWidth: 6, cornerHeight: 6, transform: nil
+            ))
+        }
+        context.clip()
+        // The context is y-down relative to CGImage, so un-flip locally rather
+        // than globally — a global flip would invert every later annotation.
+        context.translateBy(x: 0, y: patch.rect.midY * 2)
+        context.scaleBy(x: 1, y: -1)
+        context.interpolationQuality = .high
+        context.draw(patch.image, in: patch.rect)
+        context.restoreGState()
+    }
+
+    /// Draw a placed image, decoding through a cache.
+    private static func drawOverlay(
+        _ body: ImageOverlayBody, opacity: Double, in context: CGContext
+    ) {
+        guard let image = OverlayImageCache.image(for: body.data) else { return }
+        let rect = body.rect.cgRect
+        context.saveGState()
+        context.setAlpha(CGFloat(opacity))
+        context.translateBy(x: 0, y: rect.midY * 2)
+        context.scaleBy(x: 1, y: -1)
+        context.interpolationQuality = .high
+        context.draw(image, in: rect)
+        context.restoreGState()
     }
 
     private static func drawConceal(
@@ -122,11 +162,40 @@ public enum AnnotationRenderer {
             document.annotations,
             baseImage: base.cgImage,
             in: context,
-            render: RenderContext(pixelScale: base.pixelScale, isExport: true)
+            render: RenderContext(
+                pixelScale: base.pixelScale, isExport: true,
+                imageBounds: ImageRect(
+                    x: .zero, y: .zero,
+                    width: ImagePx(Double(width)), height: ImagePx(Double(height))
+                )
+            )
         )
 
         guard let output = context.makeImage() else { return base }
         return RasterImage(cgImage: output, pixelScale: base.pixelScale)
+    }
+}
+
+/// Decoded overlay images, kept between draws.
+///
+/// Decoding a PNG costs milliseconds and `draw` runs on every redraw, so
+/// without this, dragging an overlay would decode it once per frame.
+@MainActor
+enum OverlayImageCache {
+
+    private static var cache: [Int: CGImage] = [:]
+
+    static func image(for data: Data) -> CGImage? {
+        let key = data.hashValue
+        if let cached = cache[key] { return cached }
+        guard
+            let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return nil }
+        // Bounded, or a long session placing many overlays grows without limit.
+        if cache.count > 32 { cache.removeAll() }
+        cache[key] = image
+        return image
     }
 }
 

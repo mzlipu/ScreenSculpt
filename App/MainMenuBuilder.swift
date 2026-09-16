@@ -151,55 +151,6 @@ enum MainMenuBuilder {
         return wrap(menu, title: "Edit")
     }
 
-    /// The sixteen tools. Nine ship in Phase 1; the rest are visible and
-    /// disabled so the intended shape of the app is legible.
-    private static func drawMenuItem() -> NSMenuItem {
-        let menu = NSMenu(title: "Draw")
-        // Bare letters, no modifier — the convention in every drawing app.
-        menu.addItem(responder("Select", #selector(EditorWindowController.toolSelect), "v", []))
-        menu.addItem(.separator())
-        menu.addItem(responder("Arrow", #selector(EditorWindowController.toolArrow), "a", []))
-        menu.addItem(responder("Line", #selector(EditorWindowController.toolLine), "l", []))
-        menu.addItem(responder(
-            "Rectangle", #selector(EditorWindowController.toolRectangle), "r", []
-        ))
-        menu.addItem(responder("Oval", #selector(EditorWindowController.toolOval), "o", []))
-        menu.addItem(responder("Text", #selector(EditorWindowController.toolText), "t", []))
-        menu.addItem(responder(
-            "Freehand", #selector(EditorWindowController.toolFreehand), "d", []
-        ))
-        menu.addItem(responder(
-            "Highlighter", #selector(EditorWindowController.toolHighlighter), "h", []
-        ))
-        menu.addItem(responder(
-            "Blur / Conceal", #selector(EditorWindowController.toolConceal), "b", []
-        ))
-        menu.addItem(responder(
-            "Counter", #selector(EditorWindowController.toolCounter), "n", []
-        ))
-        menu.addItem(.separator())
-        menu.addItem(responder(
-            "Duplicate", #selector(EditorWindowController.duplicateAnnotation), "d"
-        ))
-        menu.addItem(responder(
-            "Delete Annotation", #selector(EditorWindowController.deleteAnnotation), "\u{8}", []
-        ))
-        menu.addItem(responder(
-            "Flatten Annotations", #selector(EditorWindowController.flattenAnnotations), "e"
-        ))
-        menu.addItem(.separator())
-        menu.addItem(stub("Spotlight"))
-        menu.addItem(stub("Magnifier"))
-        menu.addItem(stub("Ruler"))
-        menu.addItem(stub("Image Overlay"))
-        menu.addItem(stub("Backdrop"))
-        menu.addItem(stub("Add Capture"))
-        menu.addItem(.separator())
-        menu.addItem(stub("Snap to Objects"))
-        menu.addItem(stub("Snap to Similar Objects"))
-        return wrap(menu, title: "Draw")
-    }
-
     /// Colour and ruler commands.
     ///
     /// Bare letters with no modifier, because these are used with the pointer
@@ -285,7 +236,7 @@ enum MainMenuBuilder {
     }
 
     /// A menu item whose subsystem has not landed yet. Disabled, not hidden.
-    private static func stub(
+    static func stub(
         _ title: String, key: String = "", modifiers: NSEvent.ModifierFlags = [.command]
     ) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: key)

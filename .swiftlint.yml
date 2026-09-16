@@ -64,6 +64,10 @@ file_length:
 cyclomatic_complexity:
   warning: 12
   error: 20
+  # Switch arity is not complexity. The type-erasing AnyAnnotationBody forwards
+  # one line per tool, so each new tool would otherwise make a dozen mechanical
+  # dispatchers look worse. Real branching still counts.
+  ignores_case_statements: true
 
 nesting:
   type_level: 2

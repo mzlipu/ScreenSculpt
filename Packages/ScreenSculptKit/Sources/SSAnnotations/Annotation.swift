@@ -25,6 +25,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
     case highlighter(HighlighterBody)
     case counter(CounterBody)
     case conceal(ConcealBody)
+    case spotlight(SpotlightBody)
+    case magnifier(MagnifierBody)
+    case ruler(RulerBody)
+    case imageOverlay(ImageOverlayBody)
 
     public var kind: AnnotationKind {
         switch self {
@@ -37,6 +41,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter: .highlighter
         case .counter: .counter
         case .conceal: .conceal
+        case .spotlight: .spotlight
+        case .magnifier: .magnifier
+        case .ruler: .ruler
+        case .imageOverlay: .imageOverlay
         }
     }
 
@@ -53,6 +61,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): body.bounds
         case .counter(let body): body.bounds
         case .conceal(let body): body.bounds
+        case .spotlight(let body): body.bounds
+        case .magnifier(let body): body.bounds
+        case .ruler(let body): body.bounds
+        case .imageOverlay(let body): body.bounds
         }
     }
 
@@ -67,6 +79,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): body.dirtyBounds(style: style)
         case .counter(let body): body.dirtyBounds(style: style)
         case .conceal(let body): body.dirtyBounds(style: style)
+        case .spotlight(let body): body.dirtyBounds(style: style)
+        case .magnifier(let body): body.dirtyBounds(style: style)
+        case .ruler(let body): body.dirtyBounds(style: style)
+        case .imageOverlay(let body): body.dirtyBounds(style: style)
         }
     }
 
@@ -81,6 +97,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): body.handles(style: style)
         case .counter(let body): body.handles(style: style)
         case .conceal(let body): body.handles(style: style)
+        case .spotlight(let body): body.handles(style: style)
+        case .magnifier(let body): body.handles(style: style)
+        case .ruler(let body): body.handles(style: style)
+        case .imageOverlay(let body): body.handles(style: style)
         }
     }
 
@@ -95,6 +115,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): .highlighter(body.applying(edit, style: style))
         case .counter(let body): .counter(body.applying(edit, style: style))
         case .conceal(let body): .conceal(body.applying(edit, style: style))
+        case .spotlight(let body): .spotlight(body.applying(edit, style: style))
+        case .magnifier(let body): .magnifier(body.applying(edit, style: style))
+        case .ruler(let body): .ruler(body.applying(edit, style: style))
+        case .imageOverlay(let body): .imageOverlay(body.applying(edit, style: style))
         }
     }
 
@@ -109,6 +133,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): .highlighter(body.translated(by: delta))
         case .counter(let body): .counter(body.translated(by: delta))
         case .conceal(let body): .conceal(body.translated(by: delta))
+        case .spotlight(let body): .spotlight(body.translated(by: delta))
+        case .magnifier(let body): .magnifier(body.translated(by: delta))
+        case .ruler(let body): .ruler(body.translated(by: delta))
+        case .imageOverlay(let body): .imageOverlay(body.translated(by: delta))
         }
     }
 
@@ -125,6 +153,11 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): body.hitTest(point, tolerance: tolerance, style: style)
         case .counter(let body): body.hitTest(point, tolerance: tolerance, style: style)
         case .conceal(let body): body.hitTest(point, tolerance: tolerance, style: style)
+        case .spotlight(let body): body.hitTest(point, tolerance: tolerance, style: style)
+        case .magnifier(let body): body.hitTest(point, tolerance: tolerance, style: style)
+        case .ruler(let body): body.hitTest(point, tolerance: tolerance, style: style)
+        case .imageOverlay(let body):
+            body.hitTest(point, tolerance: tolerance, style: style)
         }
     }
 
@@ -139,6 +172,11 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): body.draw(in: context, style: style, render: render)
         case .counter(let body): body.draw(in: context, style: style, render: render)
         case .conceal(let body): body.draw(in: context, style: style, render: render)
+        case .spotlight(let body): body.draw(in: context, style: style, render: render)
+        case .magnifier(let body): body.draw(in: context, style: style, render: render)
+        case .ruler(let body): body.draw(in: context, style: style, render: render)
+        case .imageOverlay(let body):
+            body.draw(in: context, style: style, render: render)
         }
     }
 
@@ -153,6 +191,10 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
         case .highlighter(let body): body.snapCandidates(id: id)
         case .counter(let body): body.snapCandidates(id: id)
         case .conceal(let body): body.snapCandidates(id: id)
+        case .spotlight(let body): body.snapCandidates(id: id)
+        case .magnifier(let body): body.snapCandidates(id: id)
+        case .ruler(let body): body.snapCandidates(id: id)
+        case .imageOverlay(let body): body.snapCandidates(id: id)
         }
     }
 
@@ -160,6 +202,17 @@ public enum AnyAnnotationBody: Codable, Sendable, Equatable {
     /// that need the base image without switching over every case.
     public var concealBody: ConcealBody? {
         if case .conceal(let body) = self { return body }
+        return nil
+    }
+
+    /// Bodies whose content the renderer has to supply, for the same reason.
+    public var magnifierBody: MagnifierBody? {
+        if case .magnifier(let body) = self { return body }
+        return nil
+    }
+
+    public var imageOverlayBody: ImageOverlayBody? {
+        if case .imageOverlay(let body) = self { return body }
         return nil
     }
 }
