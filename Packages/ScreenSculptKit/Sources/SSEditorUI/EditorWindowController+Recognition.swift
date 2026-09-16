@@ -52,6 +52,10 @@ extension EditorWindowController {
                 lines == 1 ? "Copied 1 line of text" : "Copied \(lines) lines of text"
             )
         }
+        controller.onClose = { [weak self, weak controller] in
+            guard self?.textResultWindow === controller else { return }
+            self?.textResultWindow = nil
+        }
         textResultWindow?.close()
         textResultWindow = controller
         controller.present()

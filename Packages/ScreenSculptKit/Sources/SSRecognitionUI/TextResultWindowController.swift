@@ -29,6 +29,9 @@ public final class TextResultWindowController: NSWindowController {
 
     /// Called when the text is copied, so the app can show its usual confirmation.
     public var onCopy: ((String) -> Void)?
+    /// Called when the window closes, so the owner can release it and reassess
+    /// whether the app still belongs in the Dock.
+    public var onClose: (() -> Void)?
 
     public init(result: RecognizedText, removeLineBreaks: Bool) {
         self.blocks = result.blocks
@@ -44,6 +47,7 @@ public final class TextResultWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
+        window.delegate = self
 
         build(into: window, text: result.plainText)
     }
@@ -158,5 +162,11 @@ public final class TextResultWindowController: NSWindowController {
 extension TextResultWindowController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
         updateStatus()
+    }
+}
+
+extension TextResultWindowController: NSWindowDelegate {
+    public func windowWillClose(_ notification: Notification) {
+        onClose?()
     }
 }
