@@ -139,6 +139,11 @@ public enum Settings {
     public static let primaryOCRLanguage = SettingKey("primaryOCRLanguage", default: "en-US")
     public static let ocrRemoveLineBreaks = SettingKey("ocrRemoveLineBreaks", default: false)
     public static let hideMenuBarIcon = SettingKey("hideMenuBarIcon", default: false)
+    /// Show what was read after recognising text.
+    ///
+    /// The clipboard copy happens either way; this only controls whether the
+    /// result is also put on screen to be checked.
+    public static let showRecognisedText = SettingKey("showRecognisedText", default: true)
     public static let dockIconMode = SettingKey(
         "dockIconMode", default: DockIconMode.automatic
     )

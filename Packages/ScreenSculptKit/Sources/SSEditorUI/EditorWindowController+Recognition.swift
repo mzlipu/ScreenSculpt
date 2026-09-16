@@ -6,6 +6,7 @@ import SSAnnotations
 import SSImaging
 import SSPersistence
 import SSRecognition
+import SSRecognitionUI
 
 /// Text and barcode recognition, plus the blur-mode cycler that depends on it.
 extension EditorWindowController {
@@ -26,6 +27,7 @@ extension EditorWindowController {
                 removeLineBreaks: settings[Settings.ocrRemoveLineBreaks]
             )
             let result = try recognizer.recognize(in: source)
+            // Copied first either way; the window is for checking the read.
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(result.plainText, forType: .string)
 
@@ -33,9 +35,26 @@ extension EditorWindowController {
             onStatusMessage?(
                 lines == 1 ? "Copied 1 line of text" : "Copied \(lines) lines of text"
             )
+            if settings[Settings.showRecognisedText] { presentRecognised(result) }
         } catch {
             onStatusMessage?(error.localizedDescription)
         }
+    }
+
+    /// Show the result, reusing the window rather than stacking them up.
+    private func presentRecognised(_ result: RecognizedText) {
+        let controller = TextResultWindowController(
+            result: result, removeLineBreaks: settings[Settings.ocrRemoveLineBreaks]
+        )
+        controller.onCopy = { [weak self] text in
+            let lines = text.split(separator: "\n").count
+            self?.onStatusMessage?(
+                lines == 1 ? "Copied 1 line of text" : "Copied \(lines) lines of text"
+            )
+        }
+        textResultWindow?.close()
+        textResultWindow = controller
+        controller.present()
     }
 
     /// Decode any QR or barcode in the image.

@@ -9,6 +9,7 @@ import SSImaging
 import SSMeasure
 import SSPersistence
 import SSRecognition
+import SSRecognitionUI
 import SSRender
 
 /// The editor window: one capture, a canvas, and a toolbar.
@@ -22,6 +23,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     public var onSave: ((RasterImage) -> Void)?
     public var onClose: (() -> Void)?
     /// Transient one-line feedback for actions with no visible result.
+    /// The recognition window, retained so it is reused rather than stacked.
+    var textResultWindow: TextResultWindowController?
+
     public var onStatusMessage: ((String) -> Void)?
 
     let store: DocumentStore
