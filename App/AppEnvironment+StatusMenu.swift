@@ -15,10 +15,17 @@ extension AppEnvironment {
 
     func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(
+        // A template image: macOS inverts it for light and dark menu bars, and
+        // for the highlighted state. A coloured icon would be wrong in at least
+        // one of the three.
+        let icon = NSImage(named: "MenuBarIcon") ?? NSImage(
             systemSymbolName: "viewfinder", accessibilityDescription: "Screen Sculpt"
         )
-        item.button?.image?.isTemplate = true
+        icon?.isTemplate = true
+        icon?.size = NSSize(width: 18, height: 18)
+        item.button?.image = icon
+        item.button?.toolTip = "Screen Sculpt"
+
         item.menu = buildMenu()
         statusItem = item
     }

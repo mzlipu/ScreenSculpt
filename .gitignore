@@ -46,3 +46,6 @@ site/.astro/
 # Local research notes. Kept on disk, deliberately not published — this is a
 # competitor teardown and the repository is public.
 docs/shottr-analysis.md
+
+# Intermediate for AppIcon.icns; regenerate with `make icon`.
+Assets/brand/AppIcon.iconset/
