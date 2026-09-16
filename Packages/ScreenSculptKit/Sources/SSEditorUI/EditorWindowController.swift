@@ -26,6 +26,10 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     /// The recognition window, retained so it is reused rather than stacked.
     var textResultWindow: TextResultWindowController?
 
+    /// Called when the editor wants another capture to append. The app owns
+    /// the capture UI, so the editor asks rather than reaching for it.
+    public var onRequestAppend: (() -> Void)?
+
     public var onStatusMessage: ((String) -> Void)?
 
     let store: DocumentStore
@@ -139,6 +143,39 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     @objc public func toolSpotlight() { chooseTool(.spotlight) }
     @objc public func toolMagnifier() { chooseTool(.magnifier) }
     @objc public func toolRuler() { chooseTool(.ruler) }
+
+    /// Wrap the finished image in a presentation backdrop, or remove it.
+    @objc public func toggleBackdrop() {
+        store.setBackdrop(store.document.backdrop == nil ? Backdrop() : nil)
+        refresh()
+        onStatusMessage?(store.document.backdrop == nil ? "Backdrop off" : "Backdrop on")
+    }
+
+    @objc public func backdropPlain() { applyBackdrop(.plain, named: "Light") }
+    @objc public func backdropDark() { applyBackdrop(.dark, named: "Dark") }
+    @objc public func backdropGradient() { applyBackdrop(Backdrop(), named: "Gradient") }
+
+    private func applyBackdrop(_ backdrop: Backdrop, named name: String) {
+        store.setBackdrop(backdrop)
+        refresh()
+        onStatusMessage?("\(name) backdrop")
+    }
+
+    /// Ask the app for another capture and add it below this one.
+    @objc public func addCapture() {
+        guard let onRequestAppend else {
+            onStatusMessage?("Adding a capture is not available here")
+            return
+        }
+        onRequestAppend()
+    }
+
+    /// Append an image that has already been captured.
+    public func append(_ image: RasterImage, at edge: AppendEdge = .bottom) {
+        store.append(image, at: edge)
+        refresh()
+        onStatusMessage?("Added a capture")
+    }
     @objc public func toolSelect() { chooseTool(nil) }
 
     // MARK: - Measurement

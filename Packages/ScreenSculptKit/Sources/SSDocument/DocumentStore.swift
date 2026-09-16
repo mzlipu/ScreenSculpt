@@ -19,9 +19,15 @@ public final class DocumentStore {
     public private(set) var document: ShotDocument
     public private(set) var undoStack = UndoStack()
 
-    /// Memoised result of `document.render()`, keyed on the op list.
+    /// Memoised result of `document.render()`.
+    ///
+    /// Keyed on the backdrop as well as the op list. The backdrop is not an
+    /// operation — it cannot be, since padding would shift every annotation —
+    /// but it does change the rendered image, and a key that ignores it serves
+    /// a stale raster to anything that had already rendered once.
     private var cachedRaster: RasterImage?
     private var cachedOps: [RasterOp] = []
+    private var cachedBackdrop: Backdrop?
 
     /// Bumped whenever the rendered raster changes, so views can invalidate
     /// without diffing images.
@@ -39,10 +45,15 @@ public final class DocumentStore {
 
     /// Current raster, recomputing only when the operation list has changed.
     public var raster: RasterImage {
-        if let cachedRaster, cachedOps == document.rasterOps { return cachedRaster }
+        if let cachedRaster,
+           cachedOps == document.rasterOps,
+           cachedBackdrop == document.backdrop {
+            return cachedRaster
+        }
         let rendered = document.render()
         cachedRaster = rendered
         cachedOps = document.rasterOps
+        cachedBackdrop = document.backdrop
         return rendered
     }
 
@@ -78,6 +89,37 @@ public final class DocumentStore {
         guard !clamped.isEmpty, clamped != ImageRect(size: size) else { return }
         apply(name: "Crop") { document in
             document.rasterOps.append(.crop(clamped))
+            document.selection = nil
+        }
+    }
+
+    /// Set or clear the presentation backdrop.
+    ///
+    /// Annotations move with it. A backdrop pads the image, which shifts the
+    /// picture inside the canvas; anything already marked on it would otherwise
+    /// stay where it was and end up pointing somewhere else entirely.
+    public func setBackdrop(_ backdrop: Backdrop?) {
+        let size = document.rasterOnly().size
+        let before = document.backdrop?.padding(for: size) ?? 0
+        let after = backdrop?.padding(for: size) ?? 0
+        let shift = after - before
+
+        apply(name: backdrop == nil ? "Remove Backdrop" : "Backdrop") { document in
+            document.backdrop = backdrop
+            guard shift != 0 else { return }
+            let delta = ImageVector(dx: ImagePx(shift), dy: ImagePx(shift))
+            for annotation in document.annotations.all {
+                var moved = annotation
+                moved.body = annotation.body.translated(by: delta)
+                document.annotations.update(moved)
+            }
+        }
+    }
+
+    /// Add another capture below or beside this one.
+    public func append(_ image: RasterImage, at edge: AppendEdge) {
+        apply(name: "Add Capture") { document in
+            document.rasterOps.append(.append(image, edge))
             document.selection = nil
         }
     }

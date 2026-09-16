@@ -27,6 +27,9 @@ struct SettingsRootView: View {
 
             PermissionsPane(permissions: permissions)
                 .tabItem { Label("Permissions", systemImage: "lock.shield") }
+
+            AboutPane(settings: settings)
+                .tabItem { Label("About", systemImage: "info.circle") }
         }
         .frame(width: 600, height: 520)
     }

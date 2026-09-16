@@ -15,10 +15,20 @@ import SSImaging
 ///
 /// This is also what gives the app its central semantic for free: raster
 /// operations apply to `origin` and are structurally unable to see annotations.
+public enum AppendEdge: String, Sendable, Equatable, Codable {
+    case bottom, right
+}
+
 public enum RasterOp: Sendable, Equatable {
     case crop(ImageRect)
     case resize(ImageSize)
     case downscaleToOneX
+
+    /// Add another capture below or beside this one.
+    ///
+    /// Only those two edges. Appending above or to the left would move the
+    /// origin, and every annotation already placed is measured from it.
+    case append(RasterImage, AppendEdge)
 
     /// Replaces everything with a pre-rendered image — used by flatten.
     /// Undoable, unlike the usual implementation of that command, because it is
@@ -31,6 +41,8 @@ public enum RasterOp: Sendable, Equatable {
         case (.resize(let a), .resize(let b)): a == b
         case (.downscaleToOneX, .downscaleToOneX): true
         case (.flatten(let a), .flatten(let b)): a.cgImage === b.cgImage
+        case (.append(let a, let ae), .append(let b, let be)):
+            a.cgImage === b.cgImage && ae == be
         default: false
         }
     }
@@ -52,6 +64,14 @@ public struct ShotDocument: Sendable {
     /// Markup layered over the raster. Non-destructive: the pixels underneath
     /// survive until the document is flattened.
     public var annotations = OrderedAnnotations()
+
+    /// Presentation wrapped around the finished image, if any.
+    ///
+    /// Outside `rasterOps` on purpose: padding moves the image origin, and
+    /// annotations are positioned in image pixels, so applying it as an
+    /// operation would shift every existing mark. It is applied once, after
+    /// compositing.
+    public var backdrop: Backdrop?
 
     /// Currently selected annotation, if any. Transient UI state, outside undo.
     public var selectedAnnotation: AnnotationID?
@@ -81,6 +101,18 @@ public struct ShotDocument: Sendable {
     /// Recomputed on demand and memoised by ``DocumentStore``; undoing a crop is
     /// therefore a cache hit rather than a re-render.
     public func render() -> RasterImage {
+        // The backdrop is part of what the editor shows, not only of what gets
+        // exported. A presentation frame you cannot see while arranging the
+        // thing inside it is not much use.
+        guard let backdrop else { return rasterOnly() }
+        return backdrop.apply(to: rasterOnly())
+    }
+
+    /// The raster with operations applied but no backdrop.
+    ///
+    /// Needed on its own because the padding a backdrop adds is computed from
+    /// this size, and annotations have to be offset by exactly that much.
+    public func rasterOnly() -> RasterImage {
         var image = origin
         for op in rasterOps {
             switch op {
@@ -92,6 +124,8 @@ public struct ShotDocument: Sendable {
                 image = image.downscaledTo1x() ?? image
             case .flatten(let flattened):
                 image = flattened
+            case .append(let addition, let edge):
+                image = Compositor.append(addition, to: image, at: edge) ?? image
             }
         }
         return image

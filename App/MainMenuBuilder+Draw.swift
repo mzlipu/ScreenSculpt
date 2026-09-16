@@ -59,11 +59,29 @@ extension MainMenuBuilder {
             #selector(EditorWindowController.placeImageFromClipboard), "I", [.shift]
         ))
         menu.addItem(.separator())
-        menu.addItem(stub("Backdrop"))
-        menu.addItem(stub("Add Capture"))
+        menu.addItem(responder(
+            "Backdrop", #selector(EditorWindowController.toggleBackdrop), "k"
+        ))
+        menu.addItem(backdropStyleItem())
+        menu.addItem(responder(
+            "Add Capture…", #selector(EditorWindowController.addCapture), "K"
+        ))
         menu.addItem(.separator())
         menu.addItem(stub("Snap to Objects"))
         menu.addItem(stub("Snap to Similar Objects"))
         return wrap(menu, title: "Draw")
+    }
+
+    /// The backdrop presets, as a submenu.
+    private static func backdropStyleItem() -> NSMenuItem {
+        let menu = NSMenu(title: "Backdrop Style")
+        menu.addItem(responder(
+            "Gradient", #selector(EditorWindowController.backdropGradient), ""
+        ))
+        menu.addItem(responder("Light", #selector(EditorWindowController.backdropPlain), ""))
+        menu.addItem(responder("Dark", #selector(EditorWindowController.backdropDark), ""))
+        let item = NSMenuItem(title: "Backdrop Style", action: nil, keyEquivalent: "")
+        item.submenu = menu
+        return item
     }
 }
