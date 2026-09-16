@@ -21,6 +21,13 @@ extension AppEnvironment {
             let lines = text.split(separator: "\n").count
             self?.announce("Copied", body: lines == 1 ? "1 line" : "\(lines) lines")
         }
+        controller.onClose = { [weak self, weak controller] in
+            guard self?.textResultWindow === controller else { return }
+            self?.textResultWindow = nil
+            // Deferred: the window is still closing, and dropping out of the
+            // Dock mid-teardown makes it visibly stutter.
+            DispatchQueue.main.async { self?.updateDockPresence() }
+        }
         textResultWindow?.close()
         textResultWindow = controller
         updateDockPresence()
