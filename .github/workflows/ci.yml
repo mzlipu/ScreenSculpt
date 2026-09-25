@@ -19,7 +19,7 @@ jobs:
     # Pinned deliberately. `macos-latest` moves between major versions and will
     # change the default Xcode and SDK underneath the project without warning.
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -34,11 +34,32 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/ScreenSculptKit/Package.swift') }}
           restore-keys: spm-${{ runner.os }}-
 
-      # Every test here is a pure function over synthetic input: no window
+      # Split by what each group needs from the machine, with its own timeout.
+      # A single `swift test` step that stalls reports only that the job hit the
+      # job-level limit, which says nothing about where — and the run logs are
+      # not readable without a token. Separate steps make the failure legible
+      # from the API alone.
+      #
+      # Most of the suite is pure functions over synthetic input: no window
       # server, no TCC grant, no app launch. That is the whole reason the logic
-      # lives in a package rather than the app target.
-      - name: Test
-        run: swift test --package-path Packages/ScreenSculptKit
+      # lives in a package rather than in the app target.
+      - name: Test (headless logic)
+        timeout-minutes: 10
+        run: |
+          swift test --package-path Packages/ScreenSculptKit \
+            --skip SSRecognitionTests --skip SSEditorUITests
+
+      # Vision. A runner with no cached language models may fetch them on first
+      # use, which is a plausible place to stall.
+      - name: Test (recognition)
+        timeout-minutes: 8
+        run: swift test --package-path Packages/ScreenSculptKit --filter SSRecognitionTests
+
+      # AppKit. These build real windows and views to check draw ordering, and a
+      # runner's window server is not a desktop session.
+      - name: Test (AppKit views)
+        timeout-minutes: 8
+        run: swift test --package-path Packages/ScreenSculptKit --filter SSEditorUITests
 
       - name: Lint
         run: |
