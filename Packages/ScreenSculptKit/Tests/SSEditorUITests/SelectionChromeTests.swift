@@ -49,8 +49,10 @@ private func render(
     canvas.zoomToFit()
     canvas.setSelection(selection)
 
-    let rep = canvas.bitmapImageRepForCachingDisplay(in: canvas.bounds)!
-    canvas.cacheDisplay(in: canvas.bounds, to: rep)
+    let overlay = canvas.chromeOverlay
+    overlay.frame = canvas.bounds
+    let rep = overlay.bitmapImageRepForCachingDisplay(in: overlay.bounds)!
+    overlay.cacheDisplay(in: overlay.bounds, to: rep)
     let rect = selection.map { canvas.transform.toCanvas($0).cgRect } ?? .zero
     return CanvasRender(
         rep: rep, canvasRect: rect, scale: max(1, rep.pixelsHigh / Int(size.height))
@@ -127,57 +129,103 @@ struct SelectionChromeTests {
     }
 }
 
-/// Renders the real layer tree — the view's own drawn content *and* its
-/// sublayers, composited in the order the window server would.
+/// Order in the layer tree, which is what decides whether chrome is seen.
 ///
-/// `cacheDisplay` deliberately skips layers, which makes it useless for the one
-/// question that matters here: whether the base image is drawn over the chrome.
-@MainActor
-private func renderLayerTree(selection: ImageRect?) -> NSBitmapImageRep {
-    let source = CGContext(
-        data: nil, width: 200, height: 150, bitsPerComponent: 8, bytesPerRow: 0,
-        space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-    )!
-    // Mid grey: distinguishable from both the dark canvas ground and the white
-    // chrome, so whichever ends up on top is obvious.
-    source.setFillColor(CGColor(gray: 0.5, alpha: 1))
-    source.fill(CGRect(x: 0, y: 0, width: 200, height: 150))
-    let image = RasterImage(cgImage: source.makeImage()!, pixelScale: .x2)
-
-    let canvas = CanvasView(image: image)
-    canvas.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
-    canvas.zoomToFit()
-    canvas.setSelection(selection)
-    canvas.layoutSubtreeIfNeeded()
-    canvas.displayIfNeeded()
-
-    let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil, pixelsWide: 400, pixelsHigh: 300,
-        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-    )!
-    let context = NSGraphicsContext(bitmapImageRep: rep)!
-    canvas.layer?.render(in: context.cgContext)
-    return rep
-}
-
-@Suite("Selection chrome over the image")
+/// The previous version of this file rendered `canvas.layer` with
+/// `render(in:)` and concluded the chrome was visible. That was wrong:
+/// `render(in:)` does not reproduce how the window server composites a
+/// layer-backed view, so it passed while the marquee was in fact hidden behind
+/// the screenshot on screen. What follows checks the structural property
+/// instead, which cannot give a false pass.
+@Suite("Chrome sits above the image")
 @MainActor
 struct ChromeLayerOrderTests {
 
-    /// The question a headless `cacheDisplay` cannot answer: once the captured
-    /// image is actually on screen, is the marquee still visible over it?
-    @Test("The marquee is drawn above the captured image")
-    func chromeIsNotBuriedByTheImage() {
-        let plain = lightPixelCount(renderLayerTree(selection: nil))
-        let marked = lightPixelCount(
-            renderLayerTree(selection: ImageRect(x: 40, y: 40, width: 100, height: 60))
+    /// Inside a real window, because AppKit only builds the backing layer tree
+    /// and honours `needsDisplay` for a view that belongs to one — outside a
+    /// window the ordering this suite checks does not exist yet.
+    private func canvas() -> (view: CanvasView, window: NSWindow) {
+        let context = CGContext(
+            data: nil, width: 200, height: 150, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.setFillColor(CGColor(gray: 0.5, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 200, height: 150))
+        let view = CanvasView(
+            image: RasterImage(cgImage: context.makeImage()!, pixelScale: .x2)
         )
+        view.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+        return (view, window)
+    }
+
+    /// The bug this guards: chrome drawn by the canvas itself lands in that
+    /// view's own layer contents, and Core Animation puts every sublayer —
+    /// including the one holding the screenshot — above it.
+    @Test("The chrome is a view, not something the canvas paints itself")
+    func chromeIsASeparateView() {
+        let (view, _) = canvas()
+        #expect(view.subviews.contains(view.chromeOverlay))
+    }
+
+    /// The captured image must be a *sublayer*, and the chrome a *subview*.
+    ///
+    /// That pairing is what puts one above the other. Subviews of a
+    /// layer-backed view composite above that view's own sublayers, which is
+    /// also why annotations — drawn by a sibling subview — have always been
+    /// visible over the screenshot while the marquee was not.
+    ///
+    /// Asserted structurally rather than by rendering: a headless test process
+    /// never establishes layer backing for the subviews, so comparing layer
+    /// indices reports nothing here and comparing rendered pixels cannot
+    /// composite the two at all. An earlier attempt to check this by rendering
+    /// passed while the marquee was in fact invisible on screen.
+    @Test("The image is a layer and the chrome is a view above it")
+    func chromeIsAboveTheImage() throws {
+        let (view, _) = canvas()
+
+        let sublayers = try #require(view.layer?.sublayers)
         #expect(
-            marked > plain,
-            "the selection chrome is not visible over the image (\(plain) vs \(marked))"
+            sublayers.contains { $0 === view.baseLayer },
+            "the captured image should be a sublayer of the canvas"
         )
+
+        let order = view.subviews.map { ObjectIdentifier($0) }
+        let chrome = try #require(order.firstIndex(of: ObjectIdentifier(view.chromeOverlay)))
+        let annotations = try #require(
+            order.firstIndex(of: ObjectIdentifier(view.annotationLayer))
+        )
+        let scrim = try #require(order.firstIndex(of: ObjectIdentifier(view.dragScrim)))
+        #expect(chrome > annotations, "chrome must sit above the annotations")
+        #expect(chrome > scrim, "chrome must sit above the drag scrim")
+    }
+
+    /// The overlay must not swallow clicks meant for the canvas beneath it.
+    @Test("The overlay is transparent to the pointer")
+    func overlayDoesNotTakeEvents() {
+        let (view, _) = canvas()
+        #expect(view.chromeOverlay.hitTest(NSPoint(x: 50, y: 50)) == nil)
+    }
+
+    /// Asking the canvas to redraw has to redraw the chrome too, or the marquee
+    /// lags the pointer through a drag.
+    @Test("Redrawing the canvas redraws the chrome")
+    func redrawIsForwarded() {
+        let (view, _) = canvas()
+        view.displayIfNeeded()
+        view.chromeOverlay.displayIfNeeded()
+        #expect(!view.chromeOverlay.needsDisplay, "precondition: nothing pending")
+
+        view.needsDisplay = true
+        #expect(view.chromeOverlay.needsDisplay)
     }
 }
 
@@ -240,8 +288,9 @@ struct SelectionReadoutTests {
 
         #expect(view.sizeLabelText(for: view.selection!) == "50 × 40 px   25 × 20 pt")
 
-        let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
-        view.cacheDisplay(in: view.bounds, to: rep)
+        view.chromeOverlay.frame = view.bounds
+        let rep = view.chromeOverlay.bitmapImageRepForCachingDisplay(in: view.bounds)!
+        view.chromeOverlay.cacheDisplay(in: view.bounds, to: rep)
         #expect(lightPixelCount(rep) > 0, "no chrome drawn after a crop")
     }
 
@@ -253,8 +302,9 @@ struct SelectionReadoutTests {
         view.setSelection(ImageRect(x: 10, y: 10, width: 150, height: 120))
 
         func render() -> NSBitmapImageRep {
-            let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
-            view.cacheDisplay(in: view.bounds, to: rep)
+            view.chromeOverlay.frame = view.bounds
+            let rep = view.chromeOverlay.bitmapImageRepForCachingDisplay(in: view.bounds)!
+            view.chromeOverlay.cacheDisplay(in: view.bounds, to: rep)
             return rep
         }
 

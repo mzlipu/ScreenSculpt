@@ -124,4 +124,22 @@ struct SaveTests {
         // Flat synthetic colour is interface-like.
         #expect(SaveFormat.auto.resolved(for: makeImage()) == .png)
     }
+
+    /// An empty template used to produce a file called ".png", which every file
+    /// browser hides — so saving appeared to do nothing at all. Clearing the
+    /// field in settings is all it takes to get there.
+    @Test("An empty filename template falls back instead of writing a hidden file")
+    func emptyTemplateFallsBack() {
+        let name = Exporter.filename(for: .png, template: "")
+        #expect(!name.hasPrefix("."), "would be hidden: \(name)")
+        #expect(name.hasSuffix(".png"))
+        #expect(name.count > 4)
+    }
+
+    @Test("A template of only whitespace falls back too")
+    func whitespaceTemplateFallsBack() {
+        let name = Exporter.filename(for: .png, template: "   ")
+        #expect(!name.hasPrefix("."))
+        #expect(!name.contains(" .png"))
+    }
 }

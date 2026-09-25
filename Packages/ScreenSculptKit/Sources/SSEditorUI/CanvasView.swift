@@ -32,9 +32,12 @@ final class CanvasView: NSView {
     var image: RasterImage
     var selection: ImageRect?
 
-    private let baseLayer = CALayer()
+    /// Holds the captured image. Not private: the chrome ordering test asserts
+    /// this sits below the overlay, which is what keeps the marquee visible.
+    let baseLayer = CALayer()
     let annotationLayer = AnnotationOverlayView()
     let dragScrim = DragScrimView()
+    let chromeOverlay = ChromeOverlayView()
     let textEditor = TextEditingOverlay()
 
     /// Set by the window controller once the store exists.
@@ -82,7 +85,10 @@ final class CanvasView: NSView {
         layer?.addSublayer(baseLayer)
 
         // Order matters: raster (layer) < annotations < drag scrim < chrome.
-        for view in [annotationLayer, dragScrim] as [NSView] {
+        // The chrome has to be a view rather than something this one paints,
+        // because `baseLayer` above is a sublayer and would cover it.
+        chromeOverlay.canvas = self
+        for view in [annotationLayer, dragScrim, chromeOverlay] as [NSView] {
             view.autoresizingMask = [.width, .height]
             addSubview(view)
         }
@@ -95,6 +101,20 @@ final class CanvasView: NSView {
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
+
+    /// Redrawing the canvas has to redraw the chrome with it.
+    ///
+    /// Forwarded rather than changed at each of the two dozen call sites that
+    /// already ask this view to redraw — and forgetting one of those would show
+    /// up as a marquee that lags the pointer, which is a miserable thing to
+    /// track down.
+    override var needsDisplay: Bool {
+        get { super.needsDisplay }
+        set {
+            super.needsDisplay = newValue
+            chromeOverlay.needsDisplay = newValue
+        }
+    }
 
     // MARK: - Content
 

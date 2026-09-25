@@ -301,7 +301,9 @@ public final class EditorWindowController: NSWindowController, NSWindowDelegate 
     private func installToolbar() {
         let toolbar = NSToolbar(identifier: "editor")
         toolbar.delegate = self
-        toolbar.displayMode = .iconOnly
+        // Icon and label. A row of symbols with no words asks the user to
+        // recognise fifteen glyphs before they can do anything.
+        toolbar.displayMode = .iconAndLabel
         window?.toolbar = toolbar
 
         let status = NSTextField(labelWithString: "")
@@ -370,11 +372,11 @@ extension EditorWindowController: NSToolbarDelegate {
 
     public func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         var identifiers: [NSToolbarItem.Identifier] = [Item.crop, Item.reset, .space]
-        identifiers += AnnotationKind.allCases.map {
+        identifiers += AnnotationKind.toolbarTools.map {
             NSToolbarItem.Identifier($0.rawValue)
         }
         identifiers += [
-            .flexibleSpace, Item.flatten, .space,
+            .flexibleSpace,
             Item.zoomOut, Item.zoomFit, Item.zoomIn, .flexibleSpace,
             Item.copy, Item.save,
         ]
