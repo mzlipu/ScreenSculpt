@@ -53,6 +53,21 @@ private func block(_ text: String, x: Double, y: Double, w: Double, h: Double) -
     )
 }
 
+/// Whether tests that actually run Vision should execute.
+///
+/// They hang on a GitHub macOS runner — measured: the rest of the suite
+/// finishes in under two minutes there while these sit until the step is
+/// killed. Vision wants language models a fresh runner has never cached, and
+/// fetching or compiling them is not something a build machine can be relied on
+/// to do.
+///
+/// Gated rather than deleted, and gated by environment rather than by
+/// `#if DEBUG`: on a real Mac these are the only tests that prove recognition
+/// works at all, and they must keep running there. CI sets `SS_SKIP_VISION`.
+/// They report as skipped, not as passed — a suite that silently tests nothing
+/// is worse than one that is honestly absent.
+let canRunVision = ProcessInfo.processInfo.environment["SS_SKIP_VISION"] == nil
+
 // MARK: - Coordinates
 
 @Suite("Vision coordinate conversion")
@@ -84,7 +99,8 @@ struct CoordinateTests {
     }
 
     /// End-to-end version of the same check, with real recognition.
-    @Test("Text rendered in one quadrant is reported in that quadrant")
+    @Test("Text rendered in one quadrant is reported in that quadrant",
+          .enabled(if: canRunVision))
     func quadrantEndToEnd() throws {
         // CTLine draws from a baseline in CG's bottom-up space, so y = 340 of
         // 400 puts this near the TOP of the image.
@@ -104,14 +120,15 @@ struct CoordinateTests {
 @Suite("Text recognition")
 struct RecognitionTests {
 
-    @Test("Plain text is recognised")
+    @Test("Plain text is recognised", .enabled(if: canRunVision))
     func recognisesText() throws {
         let image = imageWithText([("Hello world", CGPoint(x: 40, y: 200))])
         let result = try TextRecognizer().recognize(in: image)
         #expect(result.plainText.lowercased().contains("hello"))
     }
 
-    @Test("An empty image reports no text rather than an empty success")
+    @Test("An empty image reports no text rather than an empty success",
+          .enabled(if: canRunVision))
     func emptyImage() {
         let context = CGContext(
             data: nil, width: 200, height: 200, bitsPerComponent: 8, bytesPerRow: 0,
@@ -127,7 +144,8 @@ struct RecognitionTests {
         }
     }
 
-    @Test("Supported languages are queried from the OS, not hardcoded")
+    @Test("Supported languages are queried from the OS, not hardcoded",
+          .enabled(if: canRunVision))
     func languagesFromOS() {
         let languages = TextRecognizer.supportedLanguages()
         #expect(languages.count > 5)
@@ -225,7 +243,7 @@ struct ReadingOrderTests {
 @Suite("Text region masking")
 struct MaskingTests {
 
-    @Test("Text regions are found and sit where the text is")
+    @Test("Text regions are found and sit where the text is", .enabled(if: canRunVision))
     func findsRegions() {
         let image = imageWithText([("SECRET", CGPoint(x: 40, y: 200))])
         let regions = TextRegionMasker.textRegions(in: image)
@@ -237,7 +255,8 @@ struct MaskingTests {
 
     /// The privacy-critical property: redaction must not touch anything the
     /// user did not ask to hide.
-    @Test("A region of interest confines results to that region")
+    @Test("A region of interest confines results to that region",
+          .enabled(if: canRunVision))
     func regionOfInterestIsHonoured() {
         let image = imageWithText([
             ("TOPTEXT", CGPoint(x: 40, y: 340)),

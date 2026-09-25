@@ -38,7 +38,7 @@ jobs:
       # A single `swift test` step that stalls reports only that the job hit the
       # job-level limit, which says nothing about where — and the run logs are
       # not readable without a token. Separate steps make the failure legible
-      # from the API alone.
+      # from the API alone, which is how the Vision stall below was found.
       #
       # Most of the suite is pure functions over synthetic input: no window
       # server, no TCC grant, no app launch. That is the whole reason the logic
@@ -49,10 +49,16 @@ jobs:
           swift test --package-path Packages/ScreenSculptKit \
             --skip SSRecognitionTests --skip SSEditorUITests
 
-      # Vision. A runner with no cached language models may fetch them on first
-      # use, which is a plausible place to stall.
-      - name: Test (recognition)
+      # Recognition, with the Vision-backed cases skipped. Measured on this
+      # runner: they hang until the step is killed, while everything else in the
+      # suite finishes in under two minutes. Vision wants language models a
+      # fresh machine has never cached. The reading-order and coordinate maths
+      # still run here; the cases that need Vision run on a real Mac and report
+      # as skipped rather than as passed.
+      - name: Test (recognition, Vision skipped)
         timeout-minutes: 8
+        env:
+          SS_SKIP_VISION: "1"
         run: swift test --package-path Packages/ScreenSculptKit --filter SSRecognitionTests
 
       # AppKit. These build real windows and views to check draw ordering, and a
