@@ -52,8 +52,10 @@ public enum Exporter {
     ///
     /// The timestamp is deliberately ordered largest-unit-first so files sort
     /// chronologically when sorted by name.
+    public static let defaultTemplate = "SCR-%Y%m%d-%H%M%S"
+
     public static func filename(
-        for format: ImageFormat, at date: Date = Date(), template: String = "SCR-%Y%m%d-%H%M%S"
+        for format: ImageFormat, at date: Date = Date(), template: String = defaultTemplate
     ) -> String {
         var time = time_t(date.timeIntervalSince1970)
         var parts = tm()
@@ -61,8 +63,17 @@ public enum Exporter {
         var buffer = [CChar](repeating: 0, count: 128)
         let written = strftime(&buffer, buffer.count, template, &parts)
         let bytes = buffer.prefix(written).map { UInt8(bitPattern: $0) }
-        let stem = String(bytes: bytes, encoding: .utf8) ?? "SCR"
-        return "\(stem).\(format.fileExtension)"
+        let rendered = (String(bytes: bytes, encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // An empty template produces an empty stem, and a file called ".png" is
+        // hidden by every file browser on the system — the save looks like it
+        // silently failed. Clearing the field in settings is enough to cause
+        // it, so fall back rather than write something invisible.
+        guard !rendered.isEmpty else {
+            return filename(for: format, at: date, template: defaultTemplate)
+        }
+        return "\(rendered).\(format.fileExtension)"
     }
 
     private static func uniqueURL(in folder: URL, filename: String) -> URL {

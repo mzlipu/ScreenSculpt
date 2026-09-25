@@ -18,9 +18,14 @@ extension CanvasView {
     // Drawn in view points at a fixed size, so handles stay grabbable and the
     // marquee stays one pixel wide at every zoom level.
 
-    override func draw(_ dirtyRect: NSRect) {
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
-
+    /// Draw every piece of chrome.
+    ///
+    /// Called by ``ChromeOverlayView`` rather than from this view's own
+    /// `draw(_:)`. It cannot be drawn here: the captured image lives in a
+    /// sublayer, and Core Animation composites sublayers above their
+    /// superlayer's own content — so anything this view painted itself would
+    /// sit underneath the screenshot and never be seen.
+    func drawChrome(in context: CGContext) {
         if transform.pixelGridAlpha > 0 { drawPixelGrid(in: context) }
 
         drawSnapGuides(in: context)

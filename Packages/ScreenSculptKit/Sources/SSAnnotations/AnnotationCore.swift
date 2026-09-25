@@ -55,6 +55,18 @@ public enum AnnotationKind: String, Codable, Sendable, CaseIterable, Identifiabl
         }
     }
 
+    /// Tools that can be created by dragging, and so belong on the toolbar.
+    ///
+    /// An image overlay cannot: its content comes from a file or the clipboard,
+    /// so selecting it as a tool and dragging produces an empty frame. It is
+    /// placed from the Draw menu instead.
+    public static var toolbarTools: [AnnotationKind] {
+        allCases.filter { $0 != .imageOverlay }
+    }
+
+    /// Whether a bare drag on the canvas can create this.
+    public var isDrawable: Bool { self != .imageOverlay }
+
     public var shortcut: String {
         switch self {
         case .arrow: "a"

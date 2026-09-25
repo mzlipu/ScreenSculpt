@@ -63,7 +63,10 @@ struct ToolControllerTests {
 
     /// The bug the user hit: four tools produced nothing because the object was
     /// discarded on mouse-up.
-    @Test("Every tool leaves an annotation behind", arguments: AnnotationKind.allCases)
+    @Test(
+        "Every tool leaves an annotation behind",
+        arguments: AnnotationKind.allCases.filter(\.isDrawable)
+    )
     func gestureProducesAnnotation(_ kind: AnnotationKind) {
         let store = makeStore()
         let tools = ToolController(store: store)

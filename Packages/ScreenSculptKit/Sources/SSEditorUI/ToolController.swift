@@ -107,6 +107,10 @@ final class ToolController {
     }
 
     private func beginCreating(_ kind: AnnotationKind, at point: ImagePoint) {
+        // An overlay has no content until one is chosen, so a drag would leave
+        // an empty frame behind. Placing it is a menu command, not a tool.
+        guard kind.isDrawable else { return }
+
         creationAnchor = point
         freehandPoints = [point]
 
