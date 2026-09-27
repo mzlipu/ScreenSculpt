@@ -62,9 +62,11 @@ enum MainMenuBuilder {
             action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: ""
         )
         menu.addItem(.separator())
+        // No shortcut: Command-Q closes the front window instead, so the app
+        // survives finishing with a screenshot. See AppEnvironment+Quit.
         menu.addItem(
             withTitle: "Quit Screen Sculpt",
-            action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
+            action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""
         )
         return wrap(menu, title: "Screen Sculpt")
     }

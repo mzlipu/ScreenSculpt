@@ -88,10 +88,12 @@ extension AppEnvironment {
         version.isEnabled = false
         menu.addItem(version)
 
+        // Clicking this is the deliberate way out. It shows no shortcut
+        // because Command-Q no longer quits; see AppEnvironment+Quit.
         menu.addItem(NSMenuItem(
             title: "Quit Screen Sculpt",
             action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
+            keyEquivalent: ""
         ))
         return menu
     }

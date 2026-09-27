@@ -32,6 +32,8 @@ final class AppEnvironment {
     var textResultWindow: TextResultWindowController?
 
     var statusItem: NSStatusItem?
+    /// Token for the Command-Q monitor; see AppEnvironment+Quit.
+    var quitShortcutMonitor: Any?
     var isCapturing = false
     var confirmationTask: Task<Void, Never>?
     var lastReceiptURL: URL?
@@ -45,6 +47,7 @@ final class AppEnvironment {
     func start() {
         installStatusItem()
         MainMenuBuilder.install(target: self)
+        installQuitShortcutPolicy()
         installHotKeys()
         applyAppearanceSettings()
         Task { await permissions.refreshScreenRecording() }
@@ -91,6 +94,7 @@ final class AppEnvironment {
     }
 
     func stop() {
+        removeQuitShortcutPolicy()
         if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
         statusItem = nil
     }
