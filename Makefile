@@ -69,6 +69,15 @@ icon: ## Redraw the app icon and menu bar template from scripts/make-appicon.swi
 	@iconutil -c icns Assets/brand/AppIcon.iconset -o Assets/brand/AppIcon.icns
 	@echo "icon written to Assets/brand"
 
+check-published: ## Is the site serving the disk image this repo builds?
+	@./scripts/check-published.sh
+
+release: ## Cut a release: build the .dmg and publish it to the apps site (VERSION=x.y.z)
+	./scripts/release.sh $(VERSION)
+
+publish: ## Publish the already-built .dmg to the apps site
+	./scripts/publish-to-site.sh $(VERSION)
+
 dmg: ## Build a distributable .dmg (Release, universal, ad-hoc signed)
 	@mkdir -p build
 	./scripts/make-dmg.sh
