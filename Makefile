@@ -42,26 +42,11 @@ run: build ## Build and launch
 cert: ## Create the self-signed signing cert (once) so permissions survive rebuilds
 	./scripts/make-signing-cert.sh
 
-install: dmg ## Build and install into /Applications, then relaunch
-	@pkill -x ScreenSculpt 2>/dev/null || true
-	@sleep 1
-	@hdiutil attach -nobrowse -quiet \
-	  "build/ScreenSculpt-$$(awk -F' *= *' '/^MARKETING_VERSION/{print $$2; exit}' \
-	  Config/Version.xcconfig | tr -d ' ').dmg" -mountpoint /tmp/ssmount
-	@rm -rf /Applications/ScreenSculpt.app
-	@cp -R /tmp/ssmount/ScreenSculpt.app /Applications/
-	@hdiutil detach -quiet /tmp/ssmount
-	# Remove every other copy of the bundle. macOS records a permission grant
-	# against one *copy* of an app, so a second bundle with the same identifier
-	# gets its own entry — and the Privacy list shows both as plain
-	# "ScreenSculpt" with no path. Granting Accessibility to the wrong one is
-	# indistinguishable from granting it to the right one and being ignored.
-	# Xcode recreates these on the next build; nothing is lost.
-	@rm -rf build/*/ScreenSculpt.app 2>/dev/null || true
-	@rm -rf "$$HOME"/Library/Developer/Xcode/DerivedData/ScreenSculpt-*/Build/Products/*/ScreenSculpt.app \
-	  2>/dev/null || true
-	@echo "installed to /Applications"
-	@open /Applications/ScreenSculpt.app
+install: dmg ## Build a fresh .dmg and install it into /Applications
+	@./scripts/install-local.sh
+
+install-release: ## Install the .dmg that was published, without rebuilding it
+	@./scripts/install-local.sh
 
 icon: ## Redraw the app icon and menu bar template from scripts/make-appicon.swift
 	@swiftc -O scripts/make-appicon.swift -o /tmp/ss-make-appicon

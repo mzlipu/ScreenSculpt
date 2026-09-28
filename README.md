@@ -7,7 +7,7 @@
 Scroll a whole page into one image. Measure the gap between two elements to the
 pixel. Read a colour and check its contrast. Pull text out of anything on screen.
 
-[![CI](https://github.com/OWNER/ScreenSculpt/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/ScreenSculpt/actions/workflows/ci.yml)
+[![CI](https://github.com/mzlipu/ScreenSculpt/actions/workflows/ci.yml/badge.svg)](https://github.com/mzlipu/ScreenSculpt/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-black)](#requirements)
 
@@ -44,9 +44,10 @@ only capture path available, and its screenshot API starts at 14.0.
 
 ## Installing
 
-> No public release yet — the URLs below are placeholders. To build a local
-> `.dmg` right now: `make dmg`, which writes `build/ScreenSculpt-<version>.dmg`.
-> Full walkthrough in [docs/USAGE.md](docs/USAGE.md).
+Downloads and full instructions: **<https://apps.lipu.bd/screen-sculpt>**.
+To build one locally instead: `make dmg`, which writes
+`build/ScreenSculpt-<version>.dmg`. Full walkthrough in
+[docs/USAGE.md](docs/USAGE.md).
 
 Screen Sculpt is **not signed with a paid Apple certificate**. That is a
 deliberate trade — the project has no revenue and an Apple Developer membership
@@ -70,7 +71,7 @@ The `curl` install avoids the first problem entirely, because quarantine is
 attached by the *downloading application* and `curl` doesn't attach it:
 
 ```bash
-curl -fsSL https://dl.screensculpt.app/ScreenSculpt-latest.dmg -o /tmp/ss.dmg && \
+curl -fsSL https://apps.lipu.bd/downloads/ScreenSculpt-0.1.2.dmg -o /tmp/ss.dmg && \
   hdiutil attach -nobrowse -quiet /tmp/ss.dmg && \
   cp -R "/Volumes/ScreenSculpt/ScreenSculpt.app" /Applications/ && \
   hdiutil detach -quiet "/Volumes/ScreenSculpt" && \
@@ -81,7 +82,7 @@ Or via Homebrew — `--no-quarantine` is required, because Homebrew applies the
 quarantine flag by default:
 
 ```bash
-brew install --cask --no-quarantine OWNER/screensculpt/screensculpt
+brew install --cask --no-quarantine mzlipu/screensculpt/screensculpt
 ```
 
 Every release publishes a SHA-256 next to the download. Since there is no
@@ -89,7 +90,7 @@ notarization ticket, that checksum is the only integrity signal available —
 please check it:
 
 ```bash
-shasum -a 256 ScreenSculpt-1.0.0.dmg
+shasum -a 256 ScreenSculpt-0.1.2.dmg
 ```
 
 ## Permissions
@@ -162,6 +163,13 @@ on hardware the author doesn't own.
 macOS target can import any system framework), so a SwiftLint rule does. Screen
 state belongs in `SSPlatform` and reaches the compute modules as a parameter,
 which is what keeps the stitcher and the measurement code testable headlessly.
+
+## Releasing
+
+`make release VERSION=x.y.z` builds the disk image and publishes it to the
+website in one step. The procedure around it — what to do first, what each
+safety check means when it stops you, and how to verify afterwards — is in
+**[docs/RELEASING.md](docs/RELEASING.md)**.
 
 ## Contributing
 
